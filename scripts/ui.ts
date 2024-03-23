@@ -1,3 +1,4 @@
+import { clearAuthLocal } from './auth'
 import {
     signupOrLogin,
     logout,
@@ -10,9 +11,10 @@ export const addEventListeners = () => {
     document
         .querySelector('.login')!
         .addEventListener('submit', async (e: SubmitEvent) => {
-            const rv = await signupOrLogin(e as SubmitEvent)
+            const rv = await signupOrLogin(e)
 
             if (rv instanceof Error) {
+                clearAuthLocal()
                 console.log(rv)
                 return
             }
@@ -36,10 +38,8 @@ export const addEventListeners = () => {
         .addEventListener('click', () => selectColor(2))
 }
 
-function updateLogin(user: string) {
+export function updateLogin(user: string) {
     document.querySelector('.login')!.classList.add('hidden')
     document.querySelector('#logout-btn')!.classList.remove('hidden')
     document.querySelector('.welcome-user')!.textContent = `Welcome ${user}`
 }
-
-export function updateLogout() {}

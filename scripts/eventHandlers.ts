@@ -1,4 +1,4 @@
-import { tryLogin, trySignup } from './auth'
+import { tryLogin, trySignup, trySaveAuthLocal } from './auth'
 import { User } from './user'
 
 export async function signupOrLogin(e: SubmitEvent): Promise<User | Error> {
@@ -11,6 +11,9 @@ export async function signupOrLogin(e: SubmitEvent): Promise<User | Error> {
         method: 'post',
         body: form,
     } as const
+
+    // if an error is returned, this is clear from localStorage in the caller of this function
+    trySaveAuthLocal(form)
 
     if (e.submitter?.id.includes('login')) {
         return await tryLogin(data)

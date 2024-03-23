@@ -20,6 +20,36 @@
     );
     return await _parseResponse(response);
   }
+  function trySaveAuthLocal(form) {
+    if (form.get("stayLoggedIn") !== "on") {
+      return;
+    }
+    const identity = form.get("identity");
+    const password = form.get("password");
+    localStorage.setItem("hasUserSaved", "true");
+    localStorage.setItem("identity", identity);
+    localStorage.setItem("password", password);
+  }
+  async function tryLocalLogin() {
+    if (!localStorage.getItem("hasUserSaved")) {
+      return;
+    }
+    const id = localStorage.getItem("identity");
+    const pw = localStorage.getItem("password");
+    const form = new FormData();
+    form.append("identity", id);
+    form.append("password", pw);
+    const data = {
+      method: "post",
+      body: form
+    };
+    return await tryLogin(data);
+  }
+  function clearAuthLocal() {
+    localStorage.removeItem("hasUserSaved");
+    localStorage.removeItem("identity");
+    localStorage.removeItem("password");
+  }
   async function _parseResponse(response, propName) {
     const json = await response.json();
     if (response.status != 200) {
@@ -38,6 +68,7 @@
       method: "post",
       body: form
     };
+    trySaveAuthLocal(form);
     if (e.submitter?.id.includes("login")) {
       return await tryLogin(data);
     }
@@ -70,8 +101,8 @@
   var addEventListeners = () => {
     document.querySelector(".login").addEventListener("submit", async (e) => {
       const rv = await signupOrLogin(e);
-      console.log(rv);
       if (rv instanceof Error) {
+        clearAuthLocal();
         console.log(rv);
         return;
       }
@@ -91,5 +122,11 @@
 
   // scripts/app.ts
   addEventListeners();
+  tryLocalLogin().then((response) => {
+    if (response instanceof Error || !response) {
+      return;
+    }
+    updateLogin(response.email);
+  });
 })();
 //# sourceMappingURL=app.js.map
