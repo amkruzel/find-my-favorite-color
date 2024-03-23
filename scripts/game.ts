@@ -1,4 +1,4 @@
-interface Game {
+export interface Game {
     eliminatedColors: Uint32Array
     selectedColors: Uint32Array
     color1: color

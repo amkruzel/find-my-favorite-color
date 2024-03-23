@@ -1,13 +1,9 @@
-export interface App {
-    login: () => void
-    logout: () => void
-    signup: () => void
-    showSignupForm: () => void
-    game: GameUI
+import { addEventListeners } from './ui'
+import { Game } from './game'
+
+interface App {
+    user: string
+    game: Game
 }
 
-export interface GameUI {
-    shuffleColors: () => void
-    reset: () => void
-    selectColor: (colorNum: 1 | 2) => void
-}
+addEventListeners()

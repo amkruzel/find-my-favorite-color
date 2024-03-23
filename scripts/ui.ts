@@ -1,12 +1,29 @@
-const signupDialog: HTMLDialogElement | null = document.querySelector('dialog')
+import {
+    login,
+    logout,
+    signup,
+    shuffleColors,
+    selectColor,
+    reset,
+} from './eventHandlers'
 
-export function showSignupForm() {
-    signupDialog?.showModal()
-
-    document.querySelector('body')?.addEventListener('click', e => {
-        const element = e.target as HTMLDialogElement
-        if (element?.classList.contains('signup-dialog')) {
-            signupDialog?.close()
-        }
-    })
+export const addEventListeners = () => {
+    document
+        .querySelector('.login')!
+        .addEventListener('submit', e => login(e as SubmitEvent))
+    document
+        .querySelector('#logout-btn')!
+        .addEventListener('click', e => logout(e as PointerEvent))
+    document
+        .querySelector('.new-colors')!
+        .addEventListener('click', () => shuffleColors())
+    document
+        .querySelector('.clear-data')!
+        .addEventListener('click', () => reset())
+    document
+        .querySelector('#color1')!
+        .addEventListener('click', () => selectColor(1))
+    document
+        .querySelector('#color2')!
+        .addEventListener('click', () => selectColor(2))
 }

@@ -3,7 +3,7 @@
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <script defer src="script.js" type="module"></script>
+        <script async src="app.js" type="module"></script>
         <link rel="stylesheet" href="style.css">
         <link rel="preconnect" href="https://fonts.googleapis.com">
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -37,7 +37,7 @@
                     </div>
                     <input type="hidden" name="emailVisibility" value="true">
                     <div class="form-field">
-                        <input type="submit" id="login-btn" value="Login!">
+                        <input type="submit" id="login-btn" value="Sign-up or login">
                     </div>
                 </div>
             </form>
@@ -45,7 +45,6 @@
                 <div class="welcome-user"></div>
                 <input type="button" id="logout-btn" class="hidden" value="Logout!">
             </div>
-            <button class="signup-dialog-btn">Sign up</button>
         </header>
         <h2 class="stats-container"> Stats <ul>
                 <li>Current Iteration: <span class="current-iteration"></span>
@@ -60,37 +59,5 @@
             <div class="color" id="color1"></div>
             <div class="color" id="color2"></div>
         </div>
-        <dialog class="signup-dialog">
-            <form enctype="multipart/form-data" method="dialog" class="signup-form" onsubmit="event.preventDefault()">
-                <div class="form-field">
-                    <div>
-                        <label for="email">Email: </label>
-                    </div>
-                    <div>
-                        <input type="email" name="email" id="email" />
-                    </div>
-                </div>
-                <div class="form-field">
-                    <div>
-                        <label for="password">Password: </label>
-                    </div>
-                    <div>
-                        <input type="password" name="password" id="password">
-                    </div>
-                </div>
-                <div class="form-field">
-                    <label for="password">Confirm Password: </label>
-                    <input type="password" name="passwordConfirm" id="password">
-                </div>
-                <div class="form-field stay-logged-in">
-                    <label for="stay-logged-in">Stay logged in?</label>
-                    <input type="checkbox" name="stayLoggedIn" id="stay-logged-in">
-                </div>
-                <input type="hidden" name="emailVisibility" value="true">
-                <div class="form-field">
-                    <input type="submit" id="signup-btn" value="Sign up!">
-                </div>
-            </form>
-        </dialog>
     </body>
 </html>

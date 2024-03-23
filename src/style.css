@@ -40,6 +40,18 @@ label {
     overflow: hidden;
 }
 
+/* temp */
+#color1 {
+    background-color: #a4f23e;
+}
+
+#color2 {
+    background-color: #6348ba;
+}
+
+
+/* end temp */
+
 .form-field {
     display: grid;
     grid-auto-flow: column;
@@ -85,17 +97,6 @@ label {
     width: 300px;
     margin: auto;
     display: inline-block;
-}
-
-::backdrop {
-    background-image: linear-gradient(
-        45deg,
-        magenta,
-        rebeccapurple,
-        dodgerblue,
-        green
-    );
-    opacity: 0.75;
 }
   
 
