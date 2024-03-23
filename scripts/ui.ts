@@ -1,7 +1,6 @@
 import {
-    login,
+    signupOrLogin,
     logout,
-    signup,
     shuffleColors,
     selectColor,
     reset,
@@ -10,7 +9,7 @@ import {
 export const addEventListeners = () => {
     document
         .querySelector('.login')!
-        .addEventListener('submit', e => login(e as SubmitEvent))
+        .addEventListener('submit', e => signupOrLogin(e as SubmitEvent))
     document
         .querySelector('#logout-btn')!
         .addEventListener('click', e => logout(e as PointerEvent))
