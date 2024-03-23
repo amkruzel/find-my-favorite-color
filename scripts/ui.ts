@@ -9,7 +9,16 @@ import {
 export const addEventListeners = () => {
     document
         .querySelector('.login')!
-        .addEventListener('submit', e => signupOrLogin(e as SubmitEvent))
+        .addEventListener('submit', async (e: SubmitEvent) => {
+            const rv = await signupOrLogin(e as SubmitEvent)
+
+            if (rv instanceof Error) {
+                console.log(rv)
+                return
+            }
+
+            updateLogin(rv.email)
+        })
     document
         .querySelector('#logout-btn')!
         .addEventListener('click', e => logout(e as PointerEvent))
@@ -26,3 +35,11 @@ export const addEventListeners = () => {
         .querySelector('#color2')!
         .addEventListener('click', () => selectColor(2))
 }
+
+function updateLogin(user: string) {
+    document.querySelector('.login')!.classList.add('hidden')
+    document.querySelector('#logout-btn')!.classList.remove('hidden')
+    document.querySelector('.welcome-user')!.textContent = `Welcome ${user}`
+}
+
+export function updateLogout() {}
