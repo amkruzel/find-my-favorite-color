@@ -14,6 +14,11 @@
     const response = await _fetchUsers("records", data);
     return await _parseResponse(response);
   }
+  async function tryChangePw(data) {
+    const response = await _fetchUsers("request-password-reset", data);
+    console.log(response);
+    return await _parseResponse(response);
+  }
   function saveAuthLocal(userId, email) {
     localStorage.setItem("hasUserSaved", "true");
     localStorage.setItem("id", userId);
@@ -48,30 +53,27 @@
   }
 
   // scripts/eventHandlers.ts
-  async function signupOrLogin(e) {
-    if (!(e.target instanceof HTMLFormElement)) {
-      return Error(
-        "Something went wrong - please refresh the page and try again."
-      );
-    }
-    console.log(e.target);
-    const form = new FormData(e.target);
+  async function signupOrLogin(formElement, action) {
+    const form = new FormData(formElement);
     const data = {
       method: "post",
       body: form
     };
-    if (e.submitter?.id.includes("login")) {
+    if (action === "login") {
       return await tryLogin(data);
     }
-    const pw = form.get("password");
     const email = form.get("identity");
+    form.set("email", email);
+    if (action === "changepw") {
+      return await tryChangePw(data);
+    }
+    const pw = form.get("password");
     if (!pw || !email) {
       return Error(
         "Something went wrong - please refresh the page and try again."
       );
     }
     form.append("passwordConfirm", pw);
-    form.set("email", email);
     return await trySignup(data);
   }
   function logout(e) {
@@ -122,20 +124,25 @@
   // scripts/ui.ts
   var addEventListeners = () => {
     document.querySelector(".login").addEventListener("submit", async (e) => {
-      const rv = await signupOrLogin(e);
+      const form = e.target;
+      if (!(form instanceof HTMLFormElement)) {
+        notify(
+          "error" /* error */,
+          "Something went wrong - please refresh the page and try again."
+        );
+        return;
+      }
+      const rv = await signupOrLogin(form, e.submitter?.dataset.action);
       if (rv instanceof Error) {
         notify("error" /* error */, rv.message);
         return;
       }
-      const stayLoggedInElement = e.target.elements.namedItem("stayLoggedIn");
-      console.log(stayLoggedInElement);
-      if (stayLoggedInElement instanceof HTMLInputElement && stayLoggedInElement.checked) {
+      if (_shouldSaveAuthLocal(form)) {
         saveAuthLocal(rv.id, rv.email);
       } else {
         clearAuthLocal();
       }
-      ;
-      e.target.reset();
+      form.reset();
       updateLogin(rv.email);
     });
     document.querySelector("#logout-btn").addEventListener("click", (e) => logout(e));
@@ -149,11 +156,14 @@
     document.querySelector("#logout-btn").classList.remove("hidden");
     document.querySelector(".welcome-user").textContent = `Welcome ${user}`;
   }
+  function _shouldSaveAuthLocal(form) {
+    const stayLoggedInElement = form.elements.namedItem("stayLoggedIn");
+    return stayLoggedInElement instanceof HTMLInputElement && stayLoggedInElement.checked;
+  }
 
   // scripts/app.ts
   addEventListeners();
   tryLocalLogin().then((response) => {
-    console.log(response);
     if (response instanceof Error || !response) {
       return;
     }

@@ -1,27 +1,28 @@
-import { tryLogin, trySignup, clearAuthLocal } from './auth'
+import { tryLogin, trySignup, tryChangePw, clearAuthLocal } from './auth'
 import { User } from './user'
 
-export async function signupOrLogin(e: SubmitEvent): Promise<User | Error> {
-    if (!(e.target instanceof HTMLFormElement)) {
-        return Error(
-            'Something went wrong - please refresh the page and try again.'
-        )
-    }
+export async function signupOrLogin(
+    formElement: HTMLFormElement,
+    action: string
+): Promise<User | Error> {
+    const form = new FormData(formElement)
 
-    console.log(e.target)
-
-    const form = new FormData(e.target)
     const data = {
         method: 'post',
         body: form,
     } as const
 
-    if (e.submitter?.id.includes('login')) {
+    if (action === 'login') {
         return await tryLogin(data)
     }
 
+    const email = form.get('identity') as string
+    form.set('email', email)
+    if (action === 'changepw') {
+        return await tryChangePw(data)
+    }
+
     const pw = form.get('password') as string | null
-    const email = form.get('identity') as string | null
     if (!pw || !email) {
         return Error(
             'Something went wrong - please refresh the page and try again.'
@@ -29,7 +30,6 @@ export async function signupOrLogin(e: SubmitEvent): Promise<User | Error> {
     }
 
     form.append('passwordConfirm', pw)
-    form.set('email', email)
 
     return await trySignup(data)
 }

@@ -37,8 +37,9 @@
                     </div>
                     <input type="hidden" name="emailVisibility" value="true">
                     <div class="form-field">
-                        <input type="submit" id="login-btn" value="Login">
-                        <input type="submit" id="signup-btn" value="Sign up">
+                        <input data-action="login" type="submit" id="login-btn" value="Login">
+                        <input data-action="signup" type="submit" id="signup-btn" value="Sign up">
+                        <!--<input type="submit" id="change-pw-btn" value="Change password">-->
                     </div>
                 </div>
             </form>
@@ -48,7 +49,7 @@
             </div>
         </header>
         <div class="notification-container">
-            
+
         </div>
         <h2 class="stats-container"> Stats <ul>
                 <li>Current Iteration: <span class="current-iteration"></span>

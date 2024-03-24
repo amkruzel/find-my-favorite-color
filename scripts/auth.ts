@@ -18,6 +18,14 @@ export async function trySignup(data: AuthData): Promise<User | Error> {
     return await _parseResponse(response)
 }
 
+export async function tryChangePw(data: AuthData): Promise<User | Error> {
+    const response = await _fetchUsers('request-password-reset', data)
+
+    console.log(response)
+
+    return await _parseResponse(response)
+}
+
 export function saveAuthLocal(userId: string, email: string) {
     localStorage.setItem('hasUserSaved', 'true')
     localStorage.setItem('id', userId)

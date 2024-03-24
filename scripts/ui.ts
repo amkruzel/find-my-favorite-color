@@ -12,29 +12,30 @@ export const addEventListeners = () => {
     document
         .querySelector('.login')!
         .addEventListener('submit', async (e: SubmitEvent) => {
-            const rv = await signupOrLogin(e)
+            const form = e.target
+
+            if (!(form instanceof HTMLFormElement)) {
+                notify(
+                    NotifyType.error,
+                    'Something went wrong - please refresh the page and try again.'
+                )
+                return
+            }
+
+            const rv = await signupOrLogin(form, e.submitter?.dataset.action!)
 
             if (rv instanceof Error) {
                 notify(NotifyType.error, rv.message)
                 return
             }
 
-            const stayLoggedInElement = (
-                e.target as HTMLFormElement
-            ).elements.namedItem('stayLoggedIn')
-
-            console.log(stayLoggedInElement)
-
-            if (
-                stayLoggedInElement instanceof HTMLInputElement &&
-                stayLoggedInElement.checked
-            ) {
+            if (_shouldSaveAuthLocal(form)) {
                 saveAuthLocal(rv.id, rv.email)
             } else {
                 clearAuthLocal()
             }
 
-            ;(e.target as HTMLFormElement).reset()
+            form.reset()
             updateLogin(rv.email)
         })
     document
@@ -58,4 +59,13 @@ export function updateLogin(user: string) {
     document.querySelector('.login')!.classList.add('hidden')
     document.querySelector('#logout-btn')!.classList.remove('hidden')
     document.querySelector('.welcome-user')!.textContent = `Welcome ${user}`
+}
+
+function _shouldSaveAuthLocal(form: HTMLFormElement): boolean {
+    const stayLoggedInElement = form.elements.namedItem('stayLoggedIn')
+
+    return (
+        stayLoggedInElement instanceof HTMLInputElement &&
+        stayLoggedInElement.checked
+    )
 }
