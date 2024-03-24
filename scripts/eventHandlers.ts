@@ -1,4 +1,4 @@
-import { tryLogin, trySignup, trySaveAuthLocal } from './auth'
+import { tryLogin, trySignup, clearAuthLocal } from './auth'
 import { User } from './user'
 
 export async function signupOrLogin(e: SubmitEvent): Promise<User | Error> {
@@ -11,9 +11,6 @@ export async function signupOrLogin(e: SubmitEvent): Promise<User | Error> {
         method: 'post',
         body: form,
     } as const
-
-    // if an error is returned, this is clear from localStorage in the caller of this function
-    trySaveAuthLocal(form)
 
     if (e.submitter?.id.includes('login')) {
         return await tryLogin(data)
@@ -33,6 +30,8 @@ export async function signupOrLogin(e: SubmitEvent): Promise<User | Error> {
 
 export function logout(e: PointerEvent): void {
     console.log('logoutHandler', e)
+
+    clearAuthLocal()
 
     document.querySelector('.login')!.classList.remove('hidden')
     document.querySelector('#logout-btn')!.classList.add('hidden')

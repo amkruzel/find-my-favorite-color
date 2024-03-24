@@ -20,35 +20,19 @@
     );
     return await _parseResponse(response);
   }
-  function trySaveAuthLocal(form) {
-    if (form.get("stayLoggedIn") !== "on") {
-      return;
-    }
-    const identity = form.get("identity");
-    const password = form.get("password");
+  function saveAuthLocal(userId) {
     localStorage.setItem("hasUserSaved", "true");
-    localStorage.setItem("identity", identity);
-    localStorage.setItem("password", password);
+    localStorage.setItem("id", userId);
   }
   async function tryLocalLogin() {
     if (!localStorage.getItem("hasUserSaved")) {
-      return;
+      return Error("User ID is not saved locally");
     }
-    const id = localStorage.getItem("identity");
-    const pw = localStorage.getItem("password");
-    const form = new FormData();
-    form.append("identity", id);
-    form.append("password", pw);
-    const data = {
-      method: "post",
-      body: form
-    };
-    return await tryLogin(data);
-  }
-  function clearAuthLocal() {
-    localStorage.removeItem("hasUserSaved");
-    localStorage.removeItem("identity");
-    localStorage.removeItem("password");
+    const id = localStorage.getItem("id");
+    const response = await fetch(
+      `http://34.42.14.226:8090/api/collections/users/records/${id}`
+    );
+    return await _parseResponse(response);
   }
   async function _parseResponse(response, propName) {
     const json = await response.json();
@@ -68,7 +52,6 @@
       method: "post",
       body: form
     };
-    trySaveAuthLocal(form);
     if (e.submitter?.id.includes("login")) {
       return await tryLogin(data);
     }
@@ -102,9 +85,12 @@
     document.querySelector(".login").addEventListener("submit", async (e) => {
       const rv = await signupOrLogin(e);
       if (rv instanceof Error) {
-        clearAuthLocal();
         console.log(rv);
         return;
+      }
+      const stayLoggedInElement = e.target.elements.namedItem("stayLoggedIn");
+      if (stayLoggedInElement instanceof HTMLInputElement && stayLoggedInElement.value === "on") {
+        saveAuthLocal(rv.id);
       }
       updateLogin(rv.email);
     });

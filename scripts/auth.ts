@@ -23,43 +23,28 @@ export async function trySignup(data: AuthData): Promise<User | Error> {
     return await _parseResponse(response)
 }
 
-export function trySaveAuthLocal(form: FormData) {
-    if (form.get('stayLoggedIn') !== 'on') {
-        return
-    }
-
-    const identity = form.get('identity') as string
-    const password = form.get('password') as string
-
+export function saveAuthLocal(userId: string) {
     localStorage.setItem('hasUserSaved', 'true')
-    localStorage.setItem('identity', identity)
-    localStorage.setItem('password', password)
+    localStorage.setItem('id', userId)
 }
 
-export async function tryLocalLogin() {
+export async function tryLocalLogin(): Promise<User | Error> {
     if (!localStorage.getItem('hasUserSaved')) {
-        return
+        return Error('User ID is not saved locally')
     }
 
-    const id = localStorage.getItem('identity') as string
-    const pw = localStorage.getItem('password') as string
+    const id = localStorage.getItem('id') as string
 
-    const form = new FormData()
-    form.append('identity', id)
-    form.append('password', pw)
+    const response = await fetch(
+        `http://34.42.14.226:8090/api/collections/users/records/${id}`
+    )
 
-    const data = {
-        method: 'post',
-        body: form,
-    } as const
-
-    return await tryLogin(data)
+    return await _parseResponse(response)
 }
 
 export function clearAuthLocal() {
     localStorage.removeItem('hasUserSaved')
-    localStorage.removeItem('identity')
-    localStorage.removeItem('password')
+    localStorage.removeItem('id')
 }
 
 async function _parseResponse(

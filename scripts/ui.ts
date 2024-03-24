@@ -1,4 +1,4 @@
-import { clearAuthLocal } from './auth'
+import { saveAuthLocal } from './auth'
 import {
     signupOrLogin,
     logout,
@@ -14,9 +14,19 @@ export const addEventListeners = () => {
             const rv = await signupOrLogin(e)
 
             if (rv instanceof Error) {
-                clearAuthLocal()
                 console.log(rv)
                 return
+            }
+
+            const stayLoggedInElement = (
+                e.target as HTMLFormElement
+            ).elements.namedItem('stayLoggedIn')
+
+            if (
+                stayLoggedInElement instanceof HTMLInputElement &&
+                stayLoggedInElement.value === 'on'
+            ) {
+                saveAuthLocal(rv.id)
             }
 
             updateLogin(rv.email)
