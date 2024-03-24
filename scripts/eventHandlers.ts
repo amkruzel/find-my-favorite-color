@@ -3,8 +3,12 @@ import { User } from './user'
 
 export async function signupOrLogin(e: SubmitEvent): Promise<User | Error> {
     if (!(e.target instanceof HTMLFormElement)) {
-        return Error('Event target not an instance of HTMLFormElement')
+        return Error(
+            'Something went wrong - please refresh the page and try again.'
+        )
     }
+
+    console.log(e.target)
 
     const form = new FormData(e.target)
     const data = {
@@ -19,7 +23,9 @@ export async function signupOrLogin(e: SubmitEvent): Promise<User | Error> {
     const pw = form.get('password') as string | null
     const email = form.get('identity') as string | null
     if (!pw || !email) {
-        return Error('Password or email not defined')
+        return Error(
+            'Something went wrong - please refresh the page and try again.'
+        )
     }
 
     form.append('passwordConfirm', pw)
@@ -30,6 +36,10 @@ export async function signupOrLogin(e: SubmitEvent): Promise<User | Error> {
 
 export function logout(e: PointerEvent): void {
     console.log('logoutHandler', e)
+
+    if (e.target instanceof HTMLFormElement) {
+        e.target.reset()
+    }
 
     clearAuthLocal()
 

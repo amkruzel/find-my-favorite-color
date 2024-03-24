@@ -7,32 +7,31 @@
 
   // scripts/auth.ts
   async function tryLogin(data) {
-    const response = await fetch(
-      `http://34.42.14.226:8090/api/collections/users/auth-with-password`,
-      data
-    );
+    const response = await _fetchUsers("auth-with-password", data);
     return await _parseResponse(response, "record");
   }
   async function trySignup(data) {
-    const response = await fetch(
-      `http://34.42.14.226:8090/api/collections/users/records`,
-      data
-    );
+    const response = await _fetchUsers("records", data);
     return await _parseResponse(response);
   }
-  function saveAuthLocal(userId) {
+  function saveAuthLocal(userId, email) {
     localStorage.setItem("hasUserSaved", "true");
     localStorage.setItem("id", userId);
+    localStorage.setItem("email", email);
   }
   async function tryLocalLogin() {
     if (!localStorage.getItem("hasUserSaved")) {
       return Error("User ID is not saved locally");
     }
+    updateLogin(localStorage.getItem("email"));
     const id = localStorage.getItem("id");
-    const response = await fetch(
-      `http://34.42.14.226:8090/api/collections/users/records/${id}`
-    );
+    const response = await _fetchUsers(`records/${id}`);
     return await _parseResponse(response);
+  }
+  function clearAuthLocal() {
+    localStorage.removeItem("hasUserSaved");
+    localStorage.removeItem("id");
+    localStorage.removeItem("email");
   }
   async function _parseResponse(response, propName) {
     const json = await response.json();
@@ -41,12 +40,21 @@
     }
     return getUser(propName ? json[propName] : json);
   }
+  async function _fetchUsers(path, data) {
+    return await fetch(
+      `http://34.42.14.226:8090/api/collections/users/${path}`,
+      data
+    );
+  }
 
   // scripts/eventHandlers.ts
   async function signupOrLogin(e) {
     if (!(e.target instanceof HTMLFormElement)) {
-      return Error("Event target not an instance of HTMLFormElement");
+      return Error(
+        "Something went wrong - please refresh the page and try again."
+      );
     }
+    console.log(e.target);
     const form = new FormData(e.target);
     const data = {
       method: "post",
@@ -58,7 +66,9 @@
     const pw = form.get("password");
     const email = form.get("identity");
     if (!pw || !email) {
-      return Error("Password or email not defined");
+      return Error(
+        "Something went wrong - please refresh the page and try again."
+      );
     }
     form.append("passwordConfirm", pw);
     form.set("email", email);
@@ -66,6 +76,10 @@
   }
   function logout(e) {
     console.log("logoutHandler", e);
+    if (e.target instanceof HTMLFormElement) {
+      e.target.reset();
+    }
+    clearAuthLocal();
     document.querySelector(".login").classList.remove("hidden");
     document.querySelector("#logout-btn").classList.add("hidden");
     document.querySelector(".welcome-user").textContent = "";
@@ -80,18 +94,48 @@
     console.log("selectColorHandler", num);
   }
 
+  // scripts/notification.ts
+  function notify(type, message) {
+    const container = document.querySelector(".notification-container");
+    if (!container) {
+      return;
+    }
+    const notification = _make("div", "notification", type.toString());
+    const coloredSection = _make("div");
+    const messageSection = _make("div");
+    messageSection.textContent = message;
+    notification.append(coloredSection, messageSection);
+    container.appendChild(notification);
+    setTimeout(() => {
+      notification.style.opacity = "0";
+      setTimeout(() => notification.remove(), 2500);
+    }, 5e3);
+  }
+  function _make(type, ...classes) {
+    const elem = document.createElement(type);
+    for (const cl of classes) {
+      elem.classList.add(cl);
+    }
+    return elem;
+  }
+
   // scripts/ui.ts
   var addEventListeners = () => {
     document.querySelector(".login").addEventListener("submit", async (e) => {
       const rv = await signupOrLogin(e);
       if (rv instanceof Error) {
-        console.log(rv);
+        notify("error" /* error */, rv.message);
         return;
       }
       const stayLoggedInElement = e.target.elements.namedItem("stayLoggedIn");
-      if (stayLoggedInElement instanceof HTMLInputElement && stayLoggedInElement.value === "on") {
-        saveAuthLocal(rv.id);
+      console.log(stayLoggedInElement);
+      if (stayLoggedInElement instanceof HTMLInputElement && stayLoggedInElement.checked) {
+        saveAuthLocal(rv.id, rv.email);
+      } else {
+        clearAuthLocal();
       }
+      ;
+      e.target.reset();
       updateLogin(rv.email);
     });
     document.querySelector("#logout-btn").addEventListener("click", (e) => logout(e));
@@ -109,6 +153,7 @@
   // scripts/app.ts
   addEventListeners();
   tryLocalLogin().then((response) => {
+    console.log(response);
     if (response instanceof Error || !response) {
       return;
     }

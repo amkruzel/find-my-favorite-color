@@ -1,3 +1,4 @@
+import { updateLogin } from './ui'
 import { User, getUser } from './user'
 
 interface AuthData {
@@ -6,26 +7,21 @@ interface AuthData {
 }
 
 export async function tryLogin(data: AuthData): Promise<User | Error> {
-    const response = await fetch(
-        `http://34.42.14.226:8090/api/collections/users/auth-with-password`,
-        data
-    )
+    const response = await _fetchUsers('auth-with-password', data)
 
     return await _parseResponse(response, 'record')
 }
 
 export async function trySignup(data: AuthData): Promise<User | Error> {
-    const response = await fetch(
-        `http://34.42.14.226:8090/api/collections/users/records`,
-        data
-    )
+    const response = await _fetchUsers('records', data)
 
     return await _parseResponse(response)
 }
 
-export function saveAuthLocal(userId: string) {
+export function saveAuthLocal(userId: string, email: string) {
     localStorage.setItem('hasUserSaved', 'true')
     localStorage.setItem('id', userId)
+    localStorage.setItem('email', email)
 }
 
 export async function tryLocalLogin(): Promise<User | Error> {
@@ -33,11 +29,11 @@ export async function tryLocalLogin(): Promise<User | Error> {
         return Error('User ID is not saved locally')
     }
 
+    updateLogin(localStorage.getItem('email') as string)
+
     const id = localStorage.getItem('id') as string
 
-    const response = await fetch(
-        `http://34.42.14.226:8090/api/collections/users/records/${id}`
-    )
+    const response = await _fetchUsers(`records/${id}`)
 
     return await _parseResponse(response)
 }
@@ -45,6 +41,7 @@ export async function tryLocalLogin(): Promise<User | Error> {
 export function clearAuthLocal() {
     localStorage.removeItem('hasUserSaved')
     localStorage.removeItem('id')
+    localStorage.removeItem('email')
 }
 
 async function _parseResponse(
@@ -58,4 +55,11 @@ async function _parseResponse(
     }
 
     return getUser(propName ? json[propName] : json)
+}
+
+async function _fetchUsers(path: string, data?: AuthData): Promise<Response> {
+    return await fetch(
+        `http://34.42.14.226:8090/api/collections/users/${path}`,
+        data
+    )
 }

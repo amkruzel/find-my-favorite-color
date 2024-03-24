@@ -1,4 +1,4 @@
-import { saveAuthLocal } from './auth'
+import { clearAuthLocal, saveAuthLocal } from './auth'
 import {
     signupOrLogin,
     logout,
@@ -6,6 +6,7 @@ import {
     selectColor,
     reset,
 } from './eventHandlers'
+import { NotifyType, notify } from './notification'
 
 export const addEventListeners = () => {
     document
@@ -14,7 +15,7 @@ export const addEventListeners = () => {
             const rv = await signupOrLogin(e)
 
             if (rv instanceof Error) {
-                console.log(rv)
+                notify(NotifyType.error, rv.message)
                 return
             }
 
@@ -22,13 +23,18 @@ export const addEventListeners = () => {
                 e.target as HTMLFormElement
             ).elements.namedItem('stayLoggedIn')
 
+            console.log(stayLoggedInElement)
+
             if (
                 stayLoggedInElement instanceof HTMLInputElement &&
-                stayLoggedInElement.value === 'on'
+                stayLoggedInElement.checked
             ) {
-                saveAuthLocal(rv.id)
+                saveAuthLocal(rv.id, rv.email)
+            } else {
+                clearAuthLocal()
             }
 
+            ;(e.target as HTMLFormElement).reset()
             updateLogin(rv.email)
         })
     document

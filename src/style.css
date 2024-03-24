@@ -98,6 +98,49 @@ label {
     margin: auto;
     display: inline-block;
 }
+
+.notification-container {
+    position: absolute;
+    width: 350px;
+    margin-left: auto;
+    margin-right: auto;
+    bottom: 20px;
+    left: 20px;
+    display: grid;
+    gap: 10px;
+    padding: 10px;
+}
+
+.notification {
+    height: fit-content;
+    border-radius: 10px;
+    cursor: default;
+    transition: opacity 2s ease-in-out;
+    display: grid;
+    grid-auto-flow: column;
+}
+
+.notification > div:first-child {
+    width: 50px;
+    border-top-left-radius: 10px;
+    border-bottom-left-radius: 10px;
+}
+
+.notification > div:nth-child(2) {
+    padding: 10px;
+    width: 300px;
+    background-color: #bbb7;
+    border-top-right-radius: 10px;
+    border-bottom-right-radius: 10px;
+}
+
+.information > div:first-child {
+    background-color: #888a;
+}
+
+.error > div:first-child {
+    background-color: #f00a;
+}
   
 
 @media only screen and (max-width: 650px) {
