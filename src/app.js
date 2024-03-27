@@ -86,15 +86,6 @@
     document.querySelector("#logout-btn").classList.add("hidden");
     document.querySelector(".welcome-user").textContent = "";
   }
-  function shuffleColors() {
-    console.log("shuffleColorsHandler");
-  }
-  function reset() {
-    console.log("resetHandler");
-  }
-  function selectColor(num) {
-    console.log("selectColorHandler", num);
-  }
 
   // scripts/notification.ts
   function notify(type, message) {
@@ -121,8 +112,117 @@
     return elem;
   }
 
+  // scripts/game.ts
+  function assertColor(value) {
+    if (parseInt(`${value}`) !== value || value < 0 || value > 16777215) {
+      throw new Error("Not a color!");
+    }
+  }
+  function assertIndex(value) {
+    if (parseInt(`${value}`) !== value || value < 0 || value > 524288) {
+      throw new Error("Not an index!");
+    }
+  }
+  function assertBit(value) {
+    if (parseInt(`${value}`) !== value || value < 0 || value & value - 1) {
+      throw new Error("Not a bit!");
+    }
+  }
+  function createGame() {
+    const [color1, color2] = _getTwoUniqueColors();
+    const game = {
+      eliminatedColors: new Uint32Array(524288),
+      selectedColors: new Uint32Array(524288),
+      currentIteration: 1,
+      colorsRemainingCurrentIteration: 16777216,
+      color1,
+      color2
+    };
+    return game;
+  }
+  function selectColor(game, num) {
+    _updateSelectedColors(game, num);
+    game.colorsRemainingCurrentIteration -= 2;
+    _checkForNewIteration(game);
+    pickTwoColors(game);
+  }
+  function pickTwoColors(game) {
+    for (let i = 0; i < 2; i++) {
+      let num;
+      do {
+        num = Math.floor(Math.random() * 16777216);
+        assertColor(num);
+      } while (_is("eliminated", game, num) || _is("selected", game, num));
+      if (i === 0) {
+        game.color1 = num;
+      } else {
+        game.color2 = num;
+      }
+    }
+  }
+  function reset(game) {
+    const [color1, color2] = _getTwoUniqueColors();
+    game.eliminatedColors = new Uint32Array(524288);
+    game.selectedColors = new Uint32Array(524288);
+    game.currentIteration = 1;
+    game.colorsRemainingCurrentIteration = 16777216;
+    game.color1 = color1;
+    game.color2 = color2;
+  }
+  function shuffleColors(game) {
+    pickTwoColors(game);
+  }
+  function _is(testingFor, game, color2) {
+    const [index, bit] = _split(color2);
+    let num;
+    if (testingFor === "eliminated") {
+      num = game.eliminatedColors[index];
+    } else {
+      num = game.selectedColors[index];
+    }
+    if (num === void 0) {
+      return false;
+    }
+    return !!(num & bit);
+  }
+  function _split(color2) {
+    const [index, bit] = [color2 >> 5, 2 ** (color2 & 31)];
+    assertIndex(index);
+    assertBit(bit);
+    return [index, bit];
+  }
+  function _do(action, game, color2) {
+    const [index, bit] = _split(color2);
+    const array = action === "select" ? "selectedColors" : "eliminatedColors";
+    game[array][index] |= bit;
+  }
+  function _getTwoUniqueColors() {
+    const color1 = Math.floor(Math.random() * 16777216);
+    let color2 = Math.floor(Math.random() * 16777216);
+    while (color2 == color1) {
+      color2 = Math.floor(Math.random() * 16777216);
+    }
+    assertColor(color1);
+    assertColor(color2);
+    return [color1, color2];
+  }
+  function _updateSelectedColors(game, num) {
+    const selectedColor = num === 1 ? game.color1 : game.color2;
+    const rejectedColor = num === 1 ? game.color2 : game.color1;
+    _do("select", game, selectedColor);
+    _do("eliminate", game, rejectedColor);
+  }
+  function _checkForNewIteration(game) {
+    if (game.colorsRemainingCurrentIteration !== 0) {
+      return;
+    }
+    game.currentIteration++;
+    game.selectedColors = new Uint32Array(524288);
+    game.colorsRemainingCurrentIteration = 524288 / (2 ** game.currentIteration - 1);
+  }
+
   // scripts/ui.ts
-  var addEventListeners = () => {
+  var addEventListeners = (game) => {
     document.querySelector(".login").addEventListener("submit", async (e) => {
       const form = e.target;
       if (!(form instanceof HTMLFormElement)) {
@@ -146,10 +246,22 @@
       updateLogin(rv.email);
     });
     document.querySelector("#logout-btn").addEventListener("click", (e) => logout(e));
-    document.querySelector(".new-colors").addEventListener("click", () => shuffleColors());
-    document.querySelector(".clear-data").addEventListener("click", () => reset());
-    document.querySelector("#color1").addEventListener("click", () => selectColor(1));
-    document.querySelector("#color2").addEventListener("click", () => selectColor(2));
+    document.querySelector(".new-colors").addEventListener("click", () => {
+      shuffleColors(game);
+      updateGameUi(game);
+    });
+    document.querySelector(".clear-data").addEventListener("click", () => {
+      reset(game);
+      updateGameUi(game);
+    });
+    document.querySelector("#color1").addEventListener("click", () => {
+      selectColor(game, 1);
+      updateGameUi(game);
+    });
+    document.querySelector("#color2").addEventListener("click", () => {
+      selectColor(game, 2);
+      updateGameUi(game);
+    });
   };
   function updateLogin(user) {
     document.querySelector(".login").classList.add("hidden");
@@ -160,14 +272,44 @@
     const stayLoggedInElement = form.elements.namedItem("stayLoggedIn");
     return stayLoggedInElement instanceof HTMLInputElement && stayLoggedInElement.checked;
   }
+  function updateGameUi(game) {
+    const currenIter = document.querySelector(".current-iteration");
+    if (currenIter instanceof HTMLSpanElement) {
+      currenIter.textContent = game.currentIteration.toLocaleString();
+    }
+    const colorsRemaining = document.querySelector(".colors-remaining-cur-iter");
+    if (colorsRemaining instanceof HTMLSpanElement) {
+      colorsRemaining.textContent = game.colorsRemainingCurrentIteration.toLocaleString();
+    }
+    const color1 = document.querySelector("#color1");
+    const color2 = document.querySelector("#color2");
+    if (color1 instanceof HTMLDivElement && color2 instanceof HTMLDivElement) {
+      let bgColor1, bgColor2;
+      if (game.favoriteColor) {
+        bgColor1 = bgColor2 = intToHex(game.favoriteColor);
+      } else {
+        bgColor1 = intToHex(game.color1);
+        bgColor2 = intToHex(game.color2);
+      }
+      color1.style.backgroundColor = `#${bgColor1}`;
+      color2.style.backgroundColor = `#${bgColor2}`;
+    }
+  }
+  function intToHex(num) {
+    return num.toString(16).padStart(6, "0");
+  }
 
   // scripts/app.ts
-  addEventListeners();
+  var app = {
+    game: createGame()
+  };
+  addEventListeners(app.game);
   tryLocalLogin().then((response) => {
     if (response instanceof Error || !response) {
       return;
     }
     updateLogin(response.email);
   });
+  updateGameUi(app.game);
 })();
 //# sourceMappingURL=app.js.map

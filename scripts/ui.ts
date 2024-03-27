@@ -1,14 +1,9 @@
 import { clearAuthLocal, saveAuthLocal } from './auth'
-import {
-    signupOrLogin,
-    logout,
-    shuffleColors,
-    selectColor,
-    reset,
-} from './eventHandlers'
+import { signupOrLogin, logout } from './eventHandlers'
 import { NotifyType, notify } from './notification'
+import { Game, color, shuffleColors, selectColor, reset } from './game'
 
-export const addEventListeners = () => {
+export const addEventListeners = (game: Game) => {
     document
         .querySelector('.login')!
         .addEventListener('submit', async (e: SubmitEvent) => {
@@ -41,18 +36,22 @@ export const addEventListeners = () => {
     document
         .querySelector('#logout-btn')!
         .addEventListener('click', e => logout(e as PointerEvent))
-    document
-        .querySelector('.new-colors')!
-        .addEventListener('click', () => shuffleColors())
-    document
-        .querySelector('.clear-data')!
-        .addEventListener('click', () => reset())
-    document
-        .querySelector('#color1')!
-        .addEventListener('click', () => selectColor(1))
-    document
-        .querySelector('#color2')!
-        .addEventListener('click', () => selectColor(2))
+    document.querySelector('.new-colors')!.addEventListener('click', () => {
+        shuffleColors(game)
+        updateGameUi(game)
+    })
+    document.querySelector('.clear-data')!.addEventListener('click', () => {
+        reset(game)
+        updateGameUi(game)
+    })
+    document.querySelector('#color1')!.addEventListener('click', () => {
+        selectColor(game, 1)
+        updateGameUi(game)
+    })
+    document.querySelector('#color2')!.addEventListener('click', () => {
+        selectColor(game, 2)
+        updateGameUi(game)
+    })
 }
 
 export function updateLogin(user: string) {
@@ -68,4 +67,38 @@ function _shouldSaveAuthLocal(form: HTMLFormElement): boolean {
         stayLoggedInElement instanceof HTMLInputElement &&
         stayLoggedInElement.checked
     )
+}
+
+export function updateGameUi(game: Game) {
+    const currenIter = document.querySelector('.current-iteration')
+    if (currenIter instanceof HTMLSpanElement) {
+        currenIter.textContent = game.currentIteration.toLocaleString()
+    }
+
+    const colorsRemaining = document.querySelector('.colors-remaining-cur-iter')
+    if (colorsRemaining instanceof HTMLSpanElement) {
+        colorsRemaining.textContent =
+            game.colorsRemainingCurrentIteration.toLocaleString()
+    }
+
+    const color1 = document.querySelector('#color1')
+    const color2 = document.querySelector('#color2')
+
+    if (color1 instanceof HTMLDivElement && color2 instanceof HTMLDivElement) {
+        let bgColor1: string, bgColor2: string
+
+        if (game.favoriteColor) {
+            bgColor1 = bgColor2 = intToHex(game.favoriteColor)
+        } else {
+            bgColor1 = intToHex(game.color1)
+            bgColor2 = intToHex(game.color2)
+        }
+
+        color1.style.backgroundColor = `#${bgColor1}`
+        color2.style.backgroundColor = `#${bgColor2}`
+    }
+}
+
+function intToHex(num: color): string {
+    return num.toString(16).padStart(6, '0')
 }

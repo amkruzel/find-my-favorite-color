@@ -6,14 +6,9 @@ export interface Game {
     favoriteColor?: color
     currentIteration: number
     colorsRemainingCurrentIteration: number
-    options: GameOptions
 }
 
-interface GameOptions {
-    numColors: number
-}
-
-type color = number & { __type: color }
+export type color = number & { __type: color }
 type index = number & { __type: index }
 type bit = number & { __type: bit }
 
@@ -35,7 +30,7 @@ function assertBit(value: number): asserts value is bit {
     }
 }
 
-export function createGame(options: GameOptions): Game {
+export function createGame(): Game {
     const [color1, color2] = _getTwoUniqueColors()
 
     const game: Game = {
@@ -45,25 +40,24 @@ export function createGame(options: GameOptions): Game {
         colorsRemainingCurrentIteration: 0x1000000,
         color1,
         color2,
-        options,
     }
 
     return game
 }
 
-export function selectColor(game: Game, num: 1 | 2) {
-    game = _updateSelectedColors(game, num)
+export function selectColor(game: Game, num: 1 | 2): void {
+    _updateSelectedColors(game, num)
     game.colorsRemainingCurrentIteration -= 2
-    game = _checkForNewIteration(game)
-    return pickTwoColors(game)
+    _checkForNewIteration(game)
+    pickTwoColors(game)
 }
 
-export function pickTwoColors(game: Game): Game {
+export function pickTwoColors(game: Game): void {
     for (let i = 0; i < 2; i++) {
         let num: number
 
         do {
-            num = Math.floor(Math.random() * game.options.numColors)
+            num = Math.floor(Math.random() * 0x1000000)
             assertColor(num)
         } while (_is('eliminated', game, num) || _is('selected', game, num))
 
@@ -73,11 +67,21 @@ export function pickTwoColors(game: Game): Game {
             game.color2 = num
         }
     }
-    return game
 }
 
-export function shuffleColors(game: Game): Game {
-    return pickTwoColors(game)
+export function reset(game: Game) {
+    const [color1, color2] = _getTwoUniqueColors()
+
+    game.eliminatedColors = new Uint32Array(0x80000)
+    game.selectedColors = new Uint32Array(0x80000)
+    game.currentIteration = 1
+    game.colorsRemainingCurrentIteration = 0x1000000
+    game.color1 = color1
+    game.color2 = color2
+}
+
+export function shuffleColors(game: Game): void {
+    pickTwoColors(game)
 }
 
 export function isEliminated(game: Game, color: color): boolean {
@@ -94,9 +98,19 @@ function _is(
     color: number
 ): boolean {
     const [index, bit] = _split(color)
-    const array: 'eliminatedColors' | 'selectedColors' = `${testingFor}Colors`
 
-    return !!(game[array][index] ?? 0 & bit)
+    let num: number | undefined
+    if (testingFor === 'eliminated') {
+        num = game.eliminatedColors[index]
+    } else {
+        num = game.selectedColors[index]
+    }
+
+    if (num === undefined) {
+        return false
+    }
+
+    return !!(num & bit)
 }
 
 function _split(color: number): [index, bit] {
@@ -106,13 +120,11 @@ function _split(color: number): [index, bit] {
     return [index, bit]
 }
 
-function _do(action: 'select' | 'eliminate', game: Game, color: number): Game {
+function _do(action: 'select' | 'eliminate', game: Game, color: number): void {
     const [index, bit] = _split(color)
     const array = action === 'select' ? 'selectedColors' : 'eliminatedColors'
 
     game[array][index] |= bit
-
-    return game
 }
 
 function _getTwoUniqueColors(): [color, color] {
@@ -133,19 +145,17 @@ function _updateSelectedColors(game: Game, num: 1 | 2) {
     const selectedColor = num === 1 ? game.color1 : game.color2
     const rejectedColor = num === 1 ? game.color2 : game.color1
 
-    game = _do('select', game, selectedColor)
-    return _do('eliminate', game, rejectedColor)
+    _do('select', game, selectedColor)
+    _do('eliminate', game, rejectedColor)
 }
 
-function _checkForNewIteration(game: Game): Game {
+function _checkForNewIteration(game: Game): void {
     if (game.colorsRemainingCurrentIteration !== 0) {
-        return game
+        return
     }
 
     game.currentIteration++
-    game.selectedColors = new Uint32Array(game.options.numColors)
+    game.selectedColors = new Uint32Array(0x80000)
     game.colorsRemainingCurrentIteration =
-        game.options.numColors / (2 ** game.currentIteration - 1)
-
-    return game
+        0x80000 / (2 ** game.currentIteration - 1)
 }

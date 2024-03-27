@@ -1,16 +1,18 @@
-import { addEventListeners, updateLogin } from './ui'
-import { Game } from './game'
+import { addEventListeners, updateGameUi, updateLogin } from './ui'
+import { Game, createGame } from './game'
 import { tryLocalLogin } from './auth'
 import { User } from './user'
 
 export interface App {
     user?: User
-    game?: Game
+    game: Game
 }
 
-const app: App = {}
+const app: App = {
+    game: createGame(),
+}
 
-addEventListeners()
+addEventListeners(app.game)
 tryLocalLogin().then(response => {
     if (response instanceof Error || !response) {
         return
@@ -18,3 +20,5 @@ tryLocalLogin().then(response => {
 
     updateLogin(response.email)
 })
+
+updateGameUi(app.game)

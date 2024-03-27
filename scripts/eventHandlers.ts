@@ -48,10 +48,6 @@ export function logout(e: PointerEvent): void {
     document.querySelector('.welcome-user')!.textContent = ''
 }
 
-export function shuffleColors(): void {
-    console.log('shuffleColorsHandler')
-}
-
 export function reset(): void {
     console.log('resetHandler')
 }
