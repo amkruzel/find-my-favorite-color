@@ -6,6 +6,7 @@ export interface Game {
     favoriteColor?: color
     currentIteration: number
     colorsRemainingCurrentIteration: number
+    _colors: color[]
 }
 
 export type color = number & { __type: color }
@@ -31,7 +32,8 @@ function assertBit(value: number): asserts value is bit {
 }
 
 export function createGame(): Game {
-    const [color1, color2] = _getTwoUniqueColors()
+    const _colors = _getAvailableColors()
+    const [color1, color2] = _getTwoUniqueColors(_colors)
 
     const game: Game = {
         eliminatedColors: new Uint32Array(0x80000),
@@ -40,6 +42,7 @@ export function createGame(): Game {
         colorsRemainingCurrentIteration: 0x1000000,
         color1,
         color2,
+        _colors,
     }
 
     return game
@@ -49,28 +52,22 @@ export function selectColor(game: Game, num: 1 | 2): void {
     _updateSelectedColors(game, num)
     game.colorsRemainingCurrentIteration -= 2
     _checkForNewIteration(game)
+    _checkForFavoriteColor(game, num)
     pickTwoColors(game)
 }
 
 export function pickTwoColors(game: Game): void {
-    for (let i = 0; i < 2; i++) {
-        let num: number
-
-        do {
-            num = Math.floor(Math.random() * 0x1000000)
-            assertColor(num)
-        } while (_is('eliminated', game, num) || _is('selected', game, num))
-
-        if (i === 0) {
-            game.color1 = num
-        } else {
-            game.color2 = num
-        }
+    if (game._colors.length < 2) {
+        return
     }
+
+    game.color1 = game._colors.pop()!
+    game.color2 = game._colors.pop()!
 }
 
 export function reset(game: Game) {
-    const [color1, color2] = _getTwoUniqueColors()
+    const _colors = _getAvailableColors()
+    const [color1, color2] = _getTwoUniqueColors(_colors)
 
     game.eliminatedColors = new Uint32Array(0x80000)
     game.selectedColors = new Uint32Array(0x80000)
@@ -78,9 +75,13 @@ export function reset(game: Game) {
     game.colorsRemainingCurrentIteration = 0x1000000
     game.color1 = color1
     game.color2 = color2
+    game._colors = _colors
 }
 
 export function shuffleColors(game: Game): void {
+    game._colors.push(game.color1)
+    game._colors.push(game.color2)
+    shuffle(game._colors)
     pickTwoColors(game)
 }
 
@@ -113,7 +114,7 @@ function _is(
     return !!(num & bit)
 }
 
-function _split(color: number): [index, bit] {
+export function _split(color: number): [index, bit] {
     const [index, bit] = [color >> 5, 2 ** (color & 31)]
     assertIndex(index)
     assertBit(bit)
@@ -127,7 +128,14 @@ function _do(action: 'select' | 'eliminate', game: Game, color: number): void {
     game[array][index] |= bit
 }
 
-function _getTwoUniqueColors(): [color, color] {
+function _getTwoUniqueColors(colors?: color[]): [color, color] {
+    if (colors) {
+        const color1 = colors.pop()!
+        const color2 = colors.pop()!
+
+        return [color1, color2]
+    }
+
     const color1 = Math.floor(Math.random() * 0x1000000)
     let color2 = Math.floor(Math.random() * 0x1000000)
 
@@ -154,8 +162,46 @@ function _checkForNewIteration(game: Game): void {
         return
     }
 
+    game.colorsRemainingCurrentIteration =
+        0x1000000 / 2 ** game.currentIteration
     game.currentIteration++
     game.selectedColors = new Uint32Array(0x80000)
-    game.colorsRemainingCurrentIteration =
-        0x80000 / (2 ** game.currentIteration - 1)
+}
+
+function _checkForFavoriteColor(game: Game, num: 1 | 2): void {
+    if (game.colorsRemainingCurrentIteration !== 1) {
+        return
+    }
+
+    game.favoriteColor = num === 1 ? game.color1 : game.color2
+    game.color2 = game.color1
+}
+
+export function _getAvailableColors(): color[] {
+    const availColors: color[] = []
+
+    for (let i = 0; i < 0x1000000; i++) {
+        availColors.push(i as color)
+    }
+
+    return shuffle(availColors)
+}
+
+function shuffle<T>(array: T[]): T[] {
+    let currentIndex = array.length
+
+    // While there remain elements to shuffle...
+    while (currentIndex != 0) {
+        // Pick a remaining element...
+        let randomIndex = Math.floor(Math.random() * currentIndex)
+        currentIndex--
+
+        // And swap it with the current element.
+        ;[array[currentIndex], array[randomIndex]] = [
+            array[randomIndex],
+            array[currentIndex],
+        ] as [T, T]
+    }
+
+    return array
 }
