@@ -8,6 +8,8 @@ import {
     selectColor,
 } from 'scripts/game'
 
+import { _Game } from 'scripts/_game'
+
 //import * as fs from 'fs'
 import * as fsPromises from 'fs/promises'
 
@@ -19,29 +21,29 @@ function assertTrue(val: any): asserts val is true {
     }
 }
 
-function loop(g: Game, numLoops: number) {
+function loop(g: _Game, numLoops: number) {
     for (let i = 0; i < numLoops; i++) {
-        selectColor(g, 1)
+        g.selectColor(1)
     }
 }
 
 function testSelectColor() {
-    const g = createGame()
+    const g = new _Game()
     let selected: color = g.color1
     let eliminated: color = g.color2
-    selectColor(g, 1)
+    g.selectColor(1)
 
-    assertTrue(isEliminated(g, eliminated))
-    assertTrue(isSelected(g, selected))
+    assertTrue(g.isEliminated(eliminated))
+    assertTrue(g.isSelected(selected))
 
     // now do it a bunch more times
     for (let i = 0; i < 0xffff; i++) {
         selected = g.color1
         eliminated = g.color2
-        selectColor(g, 1)
+        g.selectColor(1)
         //console.log(i)
-        assertTrue(isEliminated(g, eliminated))
-        assertTrue(isSelected(g, selected))
+        assertTrue(g.isEliminated(eliminated))
+        assertTrue(g.isSelected(selected))
     }
 
     console.log('testSelectColor PASS')
@@ -63,7 +65,6 @@ function testUintArray() {
         assertTrue(!(num & bit))
         ary[index] |= bit
     }
-    console.log(ary)
     console.log('testUintArray PASS')
 }
 
@@ -94,9 +95,7 @@ async function testColorUniqueness() {
         }
     }
 
-    console.log('begin testColorUniqueness')
-
-    const g = createGame()
+    const g = new _Game()
     const colors = new Set<color>()
 
     for (let i = 0; i < MAX_COLORS / 2; i++) {
@@ -106,16 +105,14 @@ async function testColorUniqueness() {
         colors.add(g.color1)
         colors.add(g.color2)
 
-        selectColor(g, 1)
-        // console.log('i: ', i)
+        g.selectColor(1)
     }
 
-    console.log('end testColorUniqueness')
     console.log('testColorUniqueness PASS')
 }
 
 function testCheckForNewIteration() {
-    const g = createGame()
+    const g = new _Game()
     let curColors: number = g.colorsRemainingCurrentIteration
     let curIter: number = g.currentIteration
 
@@ -142,7 +139,7 @@ function testCheckForNewIteration() {
     while (curColors !== 2) {
         loop(g, MAX_COLORS / 2 ** curIter - 1)
         _assertTrue(g.currentIteration === curIter)
-        selectColor(g, 1)
+        g.selectColor(1)
         incrementVals()
         assertVals()
     }
@@ -151,9 +148,10 @@ function testCheckForNewIteration() {
 
     const c1 = g.color1
 
-    selectColor(g, 1)
+    g.selectColor(2)
     _assertTrue(g.favoriteColor || g.favoriteColor === 0)
     _assertTrue(g.favoriteColor === c1)
+    console.log(g)
     console.log('testCheckForNewIteration PASS')
 }
 

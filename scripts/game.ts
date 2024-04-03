@@ -7,6 +7,7 @@ export interface Game {
     currentIteration: number
     colorsRemainingCurrentIteration: number
     _colors: color[]
+    _nextIterationColors: color[]
 }
 
 export type color = number & { __type: color }
@@ -43,6 +44,7 @@ export function createGame(): Game {
         color1,
         color2,
         _colors,
+        _nextIterationColors: [],
     }
 
     return game
@@ -125,6 +127,10 @@ function _do(action: 'select' | 'eliminate', game: Game, color: number): void {
     const [index, bit] = _split(color)
     const array = action === 'select' ? 'selectedColors' : 'eliminatedColors'
 
+    assertColor(color)
+
+    game._nextIterationColors.push(color)
+
     game[array][index] |= bit
 }
 
@@ -166,6 +172,8 @@ function _checkForNewIteration(game: Game): void {
         0x1000000 / 2 ** game.currentIteration
     game.currentIteration++
     game.selectedColors = new Uint32Array(0x80000)
+    game._colors = shuffle(game._nextIterationColors)
+    game._nextIterationColors = []
 }
 
 function _checkForFavoriteColor(game: Game, num: 1 | 2): void {
