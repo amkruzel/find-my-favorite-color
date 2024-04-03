@@ -1,14 +1,4 @@
-import {
-    Game,
-    _split,
-    color,
-    createGame,
-    isEliminated,
-    isSelected,
-    selectColor,
-} from 'scripts/game'
-
-import { _Game } from 'scripts/_game'
+import { Game, color } from 'scripts/game'
 
 //import * as fs from 'fs'
 import * as fsPromises from 'fs/promises'
@@ -21,14 +11,19 @@ function assertTrue(val: any): asserts val is true {
     }
 }
 
-function loop(g: _Game, numLoops: number) {
+function loop(g: Game, numLoops: number) {
     for (let i = 0; i < numLoops; i++) {
         g.selectColor(1)
     }
 }
 
+function _split(color: color) {
+    const [index, bit] = [color >> 5, 2 ** (color & 31)]
+    return [index, bit]
+}
+
 function testSelectColor() {
-    const g = new _Game()
+    const g = new Game()
     let selected: color = g.color1
     let eliminated: color = g.color2
     g.selectColor(1)
@@ -55,15 +50,15 @@ function testUintArray() {
     for (let i = 0; i < MAX_COLORS; i++) {
         const [index, bit] = _split(i as color)
 
-        const num = ary[index]
+        const num = ary[index!]
 
         if (num === undefined) {
             console.log('num is not truthy: ', num)
             continue
         }
 
-        assertTrue(!(num & bit))
-        ary[index] |= bit
+        assertTrue(!(num & bit!))
+        ary[index!] |= bit!
     }
     console.log('testUintArray PASS')
 }
@@ -95,7 +90,7 @@ async function testColorUniqueness() {
         }
     }
 
-    const g = new _Game()
+    const g = new Game()
     const colors = new Set<color>()
 
     for (let i = 0; i < MAX_COLORS / 2; i++) {
@@ -112,7 +107,7 @@ async function testColorUniqueness() {
 }
 
 function testCheckForNewIteration() {
-    const g = new _Game()
+    const g = new Game()
     let curColors: number = g.colorsRemainingCurrentIteration
     let curIter: number = g.currentIteration
 
@@ -162,8 +157,8 @@ function test_split() {
         const [index, bit] = _split(color)
 
         const cStr = color.toString(2)
-        const iStr = index.toString(2)
-        const bStr = bit.toString(2)
+        const iStr = index!.toString(2)
+        const bStr = bit!.toString(2)
 
         console.log(`color: ${cStr}`)
         console.log(`[${iStr}] [${bStr}]`)

@@ -1,18 +1,9 @@
-export interface Game {
-    eliminatedColors: Uint32Array
-    selectedColors: Uint32Array
-    color1: color
-    color2: color
-    favoriteColor?: color
-    currentIteration: number
-    colorsRemainingCurrentIteration: number
-    _colors: color[]
-    _nextIterationColors: color[]
-}
+const MAX_COLORS = 0x1000000
 
 export type color = number & { __type: color }
 type index = number & { __type: index }
 type bit = number & { __type: bit }
+type colorsAry = [color, color, ...color[]]
 
 function assertColor(value: number): asserts value is color {
     if (parseInt(`${value}`) !== value || value < 0 || value > 0xffffff) {
@@ -32,169 +23,7 @@ function assertBit(value: number): asserts value is bit {
     }
 }
 
-export function createGame(): Game {
-    const _colors = _getAvailableColors()
-    const [color1, color2] = _getTwoUniqueColors(_colors)
-
-    const game: Game = {
-        eliminatedColors: new Uint32Array(0x80000),
-        selectedColors: new Uint32Array(0x80000),
-        currentIteration: 1,
-        colorsRemainingCurrentIteration: 0x1000000,
-        color1,
-        color2,
-        _colors,
-        _nextIterationColors: [],
-    }
-
-    return game
-}
-
-export function selectColor(game: Game, num: 1 | 2): void {
-    _updateSelectedColors(game, num)
-    game.colorsRemainingCurrentIteration -= 2
-    _checkForNewIteration(game)
-    _checkForFavoriteColor(game, num)
-    pickTwoColors(game)
-}
-
-export function pickTwoColors(game: Game): void {
-    if (game._colors.length < 2) {
-        return
-    }
-
-    game.color1 = game._colors.pop()!
-    game.color2 = game._colors.pop()!
-}
-
-export function reset(game: Game) {
-    const _colors = _getAvailableColors()
-    const [color1, color2] = _getTwoUniqueColors(_colors)
-
-    game.eliminatedColors = new Uint32Array(0x80000)
-    game.selectedColors = new Uint32Array(0x80000)
-    game.currentIteration = 1
-    game.colorsRemainingCurrentIteration = 0x1000000
-    game.color1 = color1
-    game.color2 = color2
-    game._colors = _colors
-}
-
-export function shuffleColors(game: Game): void {
-    game._colors.push(game.color1)
-    game._colors.push(game.color2)
-    shuffle(game._colors)
-    pickTwoColors(game)
-}
-
-export function isEliminated(game: Game, color: color): boolean {
-    return _is('eliminated', game, color)
-}
-
-export function isSelected(game: Game, color: color): boolean {
-    return _is('selected', game, color)
-}
-
-function _is(
-    testingFor: 'eliminated' | 'selected',
-    game: Game,
-    color: number
-): boolean {
-    const [index, bit] = _split(color)
-
-    let num: number | undefined
-    if (testingFor === 'eliminated') {
-        num = game.eliminatedColors[index]
-    } else {
-        num = game.selectedColors[index]
-    }
-
-    if (num === undefined) {
-        return false
-    }
-
-    return !!(num & bit)
-}
-
-export function _split(color: number): [index, bit] {
-    const [index, bit] = [color >> 5, 2 ** (color & 31)]
-    assertIndex(index)
-    assertBit(bit)
-    return [index, bit]
-}
-
-function _do(action: 'select' | 'eliminate', game: Game, color: number): void {
-    const [index, bit] = _split(color)
-    const array = action === 'select' ? 'selectedColors' : 'eliminatedColors'
-
-    assertColor(color)
-
-    game._nextIterationColors.push(color)
-
-    game[array][index] |= bit
-}
-
-function _getTwoUniqueColors(colors?: color[]): [color, color] {
-    if (colors) {
-        const color1 = colors.pop()!
-        const color2 = colors.pop()!
-
-        return [color1, color2]
-    }
-
-    const color1 = Math.floor(Math.random() * 0x1000000)
-    let color2 = Math.floor(Math.random() * 0x1000000)
-
-    while (color2 == color1) {
-        color2 = Math.floor(Math.random() * 0x1000000)
-    }
-
-    assertColor(color1)
-    assertColor(color2)
-
-    return [color1, color2]
-}
-
-function _updateSelectedColors(game: Game, num: 1 | 2) {
-    const selectedColor = num === 1 ? game.color1 : game.color2
-    const rejectedColor = num === 1 ? game.color2 : game.color1
-
-    _do('select', game, selectedColor)
-    _do('eliminate', game, rejectedColor)
-}
-
-function _checkForNewIteration(game: Game): void {
-    if (game.colorsRemainingCurrentIteration !== 0) {
-        return
-    }
-
-    game.colorsRemainingCurrentIteration =
-        0x1000000 / 2 ** game.currentIteration
-    game.currentIteration++
-    game.selectedColors = new Uint32Array(0x80000)
-    game._colors = shuffle(game._nextIterationColors)
-    game._nextIterationColors = []
-}
-
-function _checkForFavoriteColor(game: Game, num: 1 | 2): void {
-    if (game.colorsRemainingCurrentIteration !== 1) {
-        return
-    }
-
-    game.favoriteColor = num === 1 ? game.color1 : game.color2
-    game.color2 = game.color1
-}
-
-export function _getAvailableColors(): color[] {
-    const availColors: color[] = []
-
-    for (let i = 0; i < 0x1000000; i++) {
-        availColors.push(i as color)
-    }
-
-    return shuffle(availColors)
-}
-
+// https://stackoverflow.com/questions/2450954/how-to-randomize-shuffle-a-javascript-array
 function shuffle<T>(array: T[]): T[] {
     let currentIndex = array.length
 
@@ -212,4 +41,152 @@ function shuffle<T>(array: T[]): T[] {
     }
 
     return array
+}
+
+export class Game {
+    eliminatedColors: Uint32Array
+    selectedColors: Uint32Array
+    private _favoriteColorFound: boolean
+    private _currentIteration: number
+    private _colorsRemainingCurrentIteration: number
+    private _colors: colorsAry
+    private _nextIterationColors: color[]
+
+    constructor() {
+        this._init()
+    }
+
+    public get color1() {
+        return this._colors[this._colors.length - 1] as color
+    }
+
+    public get color2() {
+        return this._colors[this._colors.length - 2] as color
+    }
+
+    public get currentIteration() {
+        return this._currentIteration
+    }
+
+    public get colorsRemainingCurrentIteration() {
+        return this._colorsRemainingCurrentIteration
+    }
+
+    public get favoriteColor(): color | null {
+        return this._favoriteColorFound ? this.color1 : null
+    }
+
+    selectColor(num: 1 | 2) {
+        this._updateSelectedColors(num)
+        this._colorsRemainingCurrentIteration -= 2
+        this._checkForNewIteration()
+        this._checkForFavoriteColor()
+    }
+
+    reset() {
+        this._init()
+    }
+
+    shuffleColors() {
+        shuffle(this._colors)
+    }
+
+    isEliminated(color: color) {
+        return this._is(color, 'eliminated')
+    }
+
+    isSelected(color: color) {
+        return this._is(color, 'selected')
+    }
+
+    private _init() {
+        const initColors = (): void => {
+            this._colors = [0, 1] as [color, color]
+
+            for (let i = 2; i < 0x1000000; i++) {
+                this._colors.push(i as color)
+            }
+
+            shuffle(this._colors)
+        }
+
+        this.eliminatedColors = new Uint32Array(0x80000)
+        this.selectedColors = new Uint32Array(0x80000)
+        this._currentIteration = 1
+        this._colorsRemainingCurrentIteration = MAX_COLORS
+        this._favoriteColorFound = false
+        this._nextIterationColors = []
+
+        initColors()
+    }
+
+    private _updateSelectedColors(num: 1 | 2): void {
+        const _do = (action: 'select' | 'eliminate', color: color): void => {
+            const [index, bit] = this._split(color)
+            const array =
+                action === 'select' ? 'selectedColors' : 'eliminatedColors'
+
+            assertColor(color)
+            if (action === 'select') {
+                this._nextIterationColors.push(this._colors.pop()!)
+            } else {
+                this._colors.pop()
+            }
+            this[array][index] |= bit
+        }
+
+        const selectAndEliminateColors = (select: color, elim: color): void => {
+            _do('select', select)
+            _do('eliminate', elim)
+        }
+
+        const selectedColor = num === 1 ? this.color1 : this.color2
+        const rejectedColor = num === 1 ? this.color2 : this.color1
+
+        selectAndEliminateColors(selectedColor, rejectedColor)
+    }
+
+    private _split(color: color): [index, bit] {
+        const [index, bit] = [color >> 5, 2 ** (color & 31)]
+        assertIndex(index)
+        assertBit(bit)
+        return [index, bit]
+    }
+
+    private _checkForNewIteration() {
+        if (this.colorsRemainingCurrentIteration !== 0) {
+            return
+        }
+
+        this._colorsRemainingCurrentIteration =
+            MAX_COLORS / 2 ** this.currentIteration
+        this._currentIteration++
+        this.selectedColors = new Uint32Array(0x80000)
+
+        if (this._nextIterationColors.length < 1) {
+            throw new Error('Array is empty but should not be')
+        }
+
+        this._colors = shuffle(this._nextIterationColors) as colorsAry
+        this._nextIterationColors = []
+    }
+
+    private _checkForFavoriteColor() {
+        this._favoriteColorFound = this.colorsRemainingCurrentIteration === 1
+    }
+
+    private _is(color: color, testingFor: 'eliminated' | 'selected'): boolean {
+        const [index, bit] = this._split(color)
+
+        const num =
+            testingFor === 'eliminated'
+                ? this.eliminatedColors[index]
+                : this.selectedColors[index]
+
+        if (num === undefined) {
+            return false
+        }
+
+        return !!(num & bit)
+    }
 }

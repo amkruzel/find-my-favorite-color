@@ -1,7 +1,7 @@
 import { clearAuthLocal, saveAuthLocal } from './auth'
 import { signupOrLogin, logout } from './eventHandlers'
 import { NotifyType, notify } from './notification'
-import { Game, color, shuffleColors, selectColor, reset } from './game'
+import { Game, color } from './game'
 
 export const addEventListeners = (game: Game) => {
     document
@@ -37,19 +37,19 @@ export const addEventListeners = (game: Game) => {
         .querySelector('#logout-btn')!
         .addEventListener('click', e => logout(e as PointerEvent))
     document.querySelector('.new-colors')!.addEventListener('click', () => {
-        shuffleColors(game)
+        game.shuffleColors()
         updateGameUi(game)
     })
     document.querySelector('.clear-data')!.addEventListener('click', () => {
-        reset(game)
+        game.reset()
         updateGameUi(game)
     })
     document.querySelector('#color1')!.addEventListener('click', () => {
-        selectColor(game, 1)
+        game.selectColor(1)
         updateGameUi(game)
     })
     document.querySelector('#color2')!.addEventListener('click', () => {
-        selectColor(game, 2)
+        game.selectColor(2)
         updateGameUi(game)
     })
 }

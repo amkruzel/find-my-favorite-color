@@ -1,5 +1,5 @@
 import { addEventListeners, updateGameUi, updateLogin } from './ui'
-import { Game, createGame } from './game'
+import { Game } from './game'
 import { tryLocalLogin } from './auth'
 import { User } from './user'
 
@@ -9,7 +9,7 @@ export interface App {
 }
 
 const app: App = {
-    game: createGame(),
+    game: new Game(),
 }
 
 addEventListeners(app.game)

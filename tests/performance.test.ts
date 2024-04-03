@@ -1,4 +1,4 @@
-import { createGame, getAvailableColors } from 'scripts/game'
+import { createGame, getAvailableColors } from 'scripts/__game'
 
 const MAX_COLORS = 0x1000000
 

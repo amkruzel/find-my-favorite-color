@@ -112,115 +112,6 @@
     return elem;
   }
 
-  // scripts/game.ts
-  function assertColor(value) {
-    if (parseInt(`${value}`) !== value || value < 0 || value > 16777215) {
-      throw new Error("Not a color!");
-    }
-  }
-  function assertIndex(value) {
-    if (parseInt(`${value}`) !== value || value < 0 || value > 524288) {
-      throw new Error("Not an index!");
-    }
-  }
-  function assertBit(value) {
-    if (parseInt(`${value}`) !== value || value < 0 || value & value - 1) {
-      throw new Error("Not a bit!");
-    }
-  }
-  function createGame() {
-    const [color1, color2] = _getTwoUniqueColors();
-    const game = {
-      eliminatedColors: new Uint32Array(524288),
-      selectedColors: new Uint32Array(524288),
-      currentIteration: 1,
-      colorsRemainingCurrentIteration: 16777216,
-      color1,
-      color2
-    };
-    return game;
-  }
-  function selectColor(game, num) {
-    _updateSelectedColors(game, num);
-    game.colorsRemainingCurrentIteration -= 2;
-    _checkForNewIteration(game);
-    pickTwoColors(game);
-  }
-  function pickTwoColors(game) {
-    for (let i = 0; i < 2; i++) {
-      let num;
-      do {
-        num = Math.floor(Math.random() * 16777216);
-        assertColor(num);
-      } while (_is("eliminated", game, num) || _is("selected", game, num));
-      if (i === 0) {
-        game.color1 = num;
-      } else {
-        game.color2 = num;
-      }
-    }
-  }
-  function reset(game) {
-    const [color1, color2] = _getTwoUniqueColors();
-    game.eliminatedColors = new Uint32Array(524288);
-    game.selectedColors = new Uint32Array(524288);
-    game.currentIteration = 1;
-    game.colorsRemainingCurrentIteration = 16777216;
-    game.color1 = color1;
-    game.color2 = color2;
-  }
-  function shuffleColors(game) {
-    pickTwoColors(game);
-  }
-  function _is(testingFor, game, color2) {
-    const [index, bit] = _split(color2);
-    let num;
-    if (testingFor === "eliminated") {
-      num = game.eliminatedColors[index];
-    } else {
-      num = game.selectedColors[index];
-    }
-    if (num === void 0) {
-      return false;
-    }
-    return !!(num & bit);
-  }
-  function _split(color2) {
-    const [index, bit] = [color2 >> 5, 2 ** (color2 & 31)];
-    assertIndex(index);
-    assertBit(bit);
-    return [index, bit];
-  }
-  function _do(action, game, color2) {
-    const [index, bit] = _split(color2);
-    const array = action === "select" ? "selectedColors" : "eliminatedColors";
-    game[array][index] |= bit;
-  }
-  function _getTwoUniqueColors() {
-    const color1 = Math.floor(Math.random() * 16777216);
-    let color2 = Math.floor(Math.random() * 16777216);
-    while (color2 == color1) {
-      color2 = Math.floor(Math.random() * 16777216);
-    }
-    assertColor(color1);
-    assertColor(color2);
-    return [color1, color2];
-  }
-  function _updateSelectedColors(game, num) {
-    const selectedColor = num === 1 ? game.color1 : game.color2;
-    const rejectedColor = num === 1 ? game.color2 : game.color1;
-    _do("select", game, selectedColor);
-    _do("eliminate", game, rejectedColor);
-  }
-  function _checkForNewIteration(game) {
-    if (game.colorsRemainingCurrentIteration !== 0) {
-      return;
-    }
-    game.currentIteration++;
-    game.selectedColors = new Uint32Array(524288);
-    game.colorsRemainingCurrentIteration = 524288 / (2 ** game.currentIteration - 1);
-  }
-
   // scripts/ui.ts
   var addEventListeners = (game) => {
     document.querySelector(".login").addEventListener("submit", async (e) => {
@@ -247,19 +138,19 @@
     });
     document.querySelector("#logout-btn").addEventListener("click", (e) => logout(e));
     document.querySelector(".new-colors").addEventListener("click", () => {
-      shuffleColors(game);
+      game.shuffleColors();
       updateGameUi(game);
     });
     document.querySelector(".clear-data").addEventListener("click", () => {
-      reset(game);
+      game.reset();
       updateGameUi(game);
     });
     document.querySelector("#color1").addEventListener("click", () => {
-      selectColor(game, 1);
+      game.selectColor(1);
       updateGameUi(game);
     });
     document.querySelector("#color2").addEventListener("click", () => {
-      selectColor(game, 2);
+      game.selectColor(2);
       updateGameUi(game);
     });
   };
@@ -299,9 +190,143 @@
     return num.toString(16).padStart(6, "0");
   }
 
+  // scripts/game.ts
+  var MAX_COLORS = 16777216;
+  function assertColor(value) {
+    if (parseInt(`${value}`) !== value || value < 0 || value > 16777215) {
+      throw new Error("Not a color!");
+    }
+  }
+  function assertIndex(value) {
+    if (parseInt(`${value}`) !== value || value < 0 || value > 524288) {
+      throw new Error("Not an index!");
+    }
+  }
+  function assertBit(value) {
+    if (parseInt(`${value}`) !== value || value < 0 || value & value - 1) {
+      throw new Error("Not a bit!");
+    }
+  }
+  function shuffle(array) {
+    let currentIndex = array.length;
+    while (currentIndex != 0) {
+      let randomIndex = Math.floor(Math.random() * currentIndex);
+      currentIndex--;
+      [array[currentIndex], array[randomIndex]] = [
+        array[randomIndex],
+        array[currentIndex]
+      ];
+    }
+    return array;
+  }
+  var Game = class {
+    constructor() {
+      this._init();
+    }
+    get color1() {
+      return this._colors[this._colors.length - 1];
+    }
+    get color2() {
+      return this._colors[this._colors.length - 2];
+    }
+    get currentIteration() {
+      return this._currentIteration;
+    }
+    get colorsRemainingCurrentIteration() {
+      return this._colorsRemainingCurrentIteration;
+    }
+    get favoriteColor() {
+      return this._favoriteColorFound ? this.color1 : null;
+    }
+    selectColor(num) {
+      this._updateSelectedColors(num);
+      this._colorsRemainingCurrentIteration -= 2;
+      this._checkForNewIteration();
+      this._checkForFavoriteColor();
+    }
+    reset() {
+      this._init();
+    }
+    shuffleColors() {
+      shuffle(this._colors);
+    }
+    isEliminated(color) {
+      return this._is(color, "eliminated");
+    }
+    isSelected(color) {
+      return this._is(color, "selected");
+    }
+    _init() {
+      const initColors = () => {
+        this._colors = [0, 1];
+        for (let i = 2; i < 16777216; i++) {
+          this._colors.push(i);
+        }
+        shuffle(this._colors);
+      };
+      this.eliminatedColors = new Uint32Array(524288);
+      this.selectedColors = new Uint32Array(524288);
+      this._currentIteration = 1;
+      this._colorsRemainingCurrentIteration = MAX_COLORS;
+      this._favoriteColorFound = false;
+      this._nextIterationColors = [];
+      initColors();
+    }
+    _updateSelectedColors(num) {
+      const _do = (action, color) => {
+        const [index, bit] = this._split(color);
+        const array = action === "select" ? "selectedColors" : "eliminatedColors";
+        assertColor(color);
+        if (action === "select") {
+          this._nextIterationColors.push(this._colors.pop());
+        } else {
+          this._colors.pop();
+        }
+        this[array][index] |= bit;
+      };
+      const selectAndEliminateColors = (select, elim) => {
+        _do("select", select);
+        _do("eliminate", elim);
+      };
+      const selectedColor = num === 1 ? this.color1 : this.color2;
+      const rejectedColor = num === 1 ? this.color2 : this.color1;
+      selectAndEliminateColors(selectedColor, rejectedColor);
+    }
+    _split(color) {
+      const [index, bit] = [color >> 5, 2 ** (color & 31)];
+      assertIndex(index);
+      assertBit(bit);
+      return [index, bit];
+    }
+    _checkForNewIteration() {
+      if (this.colorsRemainingCurrentIteration !== 0) {
+        return;
+      }
+      this._colorsRemainingCurrentIteration = MAX_COLORS / 2 ** this.currentIteration;
+      this._currentIteration++;
+      this.selectedColors = new Uint32Array(524288);
+      if (this._nextIterationColors.length < 1) {
+        throw new Error("Array is empty but should not be");
+      }
+      this._colors = shuffle(this._nextIterationColors);
+      this._nextIterationColors = [];
+    }
+    _checkForFavoriteColor() {
+      this._favoriteColorFound = this.colorsRemainingCurrentIteration === 1;
+    }
+    _is(color, testingFor) {
+      const [index, bit] = this._split(color);
+      const num = testingFor === "eliminated" ? this.eliminatedColors[index] : this.selectedColors[index];
+      if (num === void 0) {
+        return false;
+      }
+      return !!(num & bit);
+    }
+  };
+
   // scripts/app.ts
   var app = {
-    game: createGame()
+    game: new Game()
   };
   addEventListeners(app.game);
   tryLocalLogin().then((response) => {
