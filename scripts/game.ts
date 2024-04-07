@@ -5,6 +5,14 @@ type index = number & { __type: index }
 type bit = number & { __type: bit }
 type colorsAry = [color, color, ...color[]]
 
+export interface GameProps {
+    favoriteColorFound: boolean
+    currentIteration: number
+    colorsRemainingCurrentIteration: number
+    color1: number
+    color2: number
+}
+
 function assertColor(value: number): asserts value is color {
     if (parseInt(`${value}`) !== value || value < 0 || value > 0xffffff) {
         throw new Error('Not a color!')
@@ -52,28 +60,51 @@ export class Game {
     private _colors: colorsAry
     private _nextIterationColors: color[]
 
-    constructor() {
-        this._init()
+    constructor(
+        eliminated?: ArrayBuffer,
+        selected?: ArrayBuffer,
+        props?: GameProps
+    ) {
+        if (!eliminated || !selected || !props) {
+            this._init()
+        } else {
+            this._load(eliminated, selected, props)
+        }
     }
 
-    public get color1() {
+    get color1() {
         return this._colors[this._colors.length - 1] as color
     }
 
-    public get color2() {
+    get color2() {
         return this._colors[this._colors.length - 2] as color
     }
 
-    public get currentIteration() {
+    get currentIteration() {
         return this._currentIteration
     }
 
-    public get colorsRemainingCurrentIteration() {
+    get colorsRemainingCurrentIteration() {
         return this._colorsRemainingCurrentIteration
     }
 
-    public get favoriteColor(): color | null {
+    get favoriteColor(): color | null {
         return this._favoriteColorFound ? this.color1 : null
+    }
+
+    get properties(): GameProps {
+        return {
+            favoriteColorFound: this.favoriteColor !== null,
+            currentIteration: this.currentIteration,
+            colorsRemainingCurrentIteration:
+                this.colorsRemainingCurrentIteration,
+            color1: this.color1,
+            color2: this.color2,
+        }
+    }
+
+    get testingProps(): [color[], color[]] {
+        return [this._colors, this._nextIterationColors]
     }
 
     selectColor(num: 1 | 2) {
@@ -100,14 +131,19 @@ export class Game {
     }
 
     private _init() {
+        let p = performance.now()
+        console.log(`begin _init()`)
+
         const initColors = (): void => {
             this._colors = [0, 1] as [color, color]
-
+            p = performance.now()
             for (let i = 2; i < 0x1000000; i++) {
                 this._colors.push(i as color)
             }
-
+            console.log(`loop took ${performance.now() - p}ms`)
+            p = performance.now()
             shuffle(this._colors)
+            console.log(`shuffle took ${performance.now() - p}ms`)
         }
 
         this.eliminatedColors = new Uint32Array(0x80000)
@@ -116,8 +152,56 @@ export class Game {
         this._colorsRemainingCurrentIteration = MAX_COLORS
         this._favoriteColorFound = false
         this._nextIterationColors = []
+        console.log(`_init() took ${performance.now() - p}ms`)
 
+        console.log(`begin initColors()`)
+
+        p = performance.now()
         initColors()
+        console.log(`initColors() took ${performance.now() - p}ms`)
+    }
+
+    private _load(
+        eliminated: ArrayBuffer,
+        selected: ArrayBuffer,
+        props: GameProps
+    ) {
+        this.eliminatedColors = new Uint32Array(eliminated)
+        this.selectedColors = new Uint32Array(selected)
+        this._currentIteration = props.currentIteration
+        this._colorsRemainingCurrentIteration =
+            props.colorsRemainingCurrentIteration
+        this._favoriteColorFound = props.favoriteColorFound
+
+        assertColor(props.color1)
+        assertColor(props.color2)
+
+        this._buildColors(props.color1, props.color2)
+    }
+
+    private _buildColors(color1: color, color2: color) {
+        const colors = []
+        const nextIterationColors = []
+
+        for (let i = 0; i < MAX_COLORS; i++) {
+            assertColor(i)
+
+            if (this.isEliminated(i) || i == color1 || i == color2) {
+                continue
+            }
+
+            if (this.isSelected(i)) {
+                nextIterationColors.push(i)
+                continue
+            }
+
+            colors.push(i)
+        }
+
+        this._colors = shuffle(colors) as colorsAry
+        this._colors.push(color2)
+        this._colors.push(color1)
+        this._nextIterationColors = nextIterationColors
     }
 
     private _updateSelectedColors(num: 1 | 2): void {

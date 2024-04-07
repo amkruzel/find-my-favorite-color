@@ -1,58 +1,18 @@
 "use strict";
-var __create = Object.create;
-var __defProp = Object.defineProperty;
-var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
-var __getOwnPropNames = Object.getOwnPropertyNames;
-var __getProtoOf = Object.getPrototypeOf;
-var __hasOwnProp = Object.prototype.hasOwnProperty;
-var __copyProps = (to, from, except, desc) => {
-  if (from && typeof from === "object" || typeof from === "function") {
-    for (let key of __getOwnPropNames(from))
-      if (!__hasOwnProp.call(to, key) && key !== except)
-        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
-  }
-  return to;
-};
-var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__getProtoOf(mod)) : {}, __copyProps(
-  // If the importer is in node compatibility mode or this is not an ESM
-  // file that has been converted to a CommonJS file using a Babel-
-  // compatible transform (i.e. "__esModule" has not been set), then set
-  // "default" to the CommonJS "module.exports" for node compatibility.
-  isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
-  mod
-));
 
 // scripts/game.ts
-function assertIndex(value) {
-  if (parseInt(`${value}`) !== value || value < 0 || value > 524288) {
-    throw new Error("Not an index!");
-  }
-}
-function assertBit(value) {
-  if (parseInt(`${value}`) !== value || value < 0 || value & value - 1) {
-    throw new Error("Not a bit!");
-  }
-}
-function _split(color2) {
-  const [index, bit] = [color2 >> 5, 2 ** (color2 & 31)];
-  assertIndex(index);
-  assertBit(bit);
-  return [index, bit];
-}
-
-// scripts/_game.ts
 var MAX_COLORS = 16777216;
 function assertColor(value) {
   if (parseInt(`${value}`) !== value || value < 0 || value > 16777215) {
     throw new Error("Not a color!");
   }
 }
-function assertIndex2(value) {
+function assertIndex(value) {
   if (parseInt(`${value}`) !== value || value < 0 || value > 524288) {
     throw new Error("Not an index!");
   }
 }
-function assertBit2(value) {
+function assertBit(value) {
   if (parseInt(`${value}`) !== value || value < 0 || value & value - 1) {
     throw new Error("Not a bit!");
   }
@@ -69,9 +29,13 @@ function shuffle(array) {
   }
   return array;
 }
-var _Game = class {
-  constructor() {
-    this._init();
+var Game = class {
+  constructor(eliminated, selected, props) {
+    if (!eliminated || !selected || !props) {
+      this._init();
+      return;
+    }
+    this._load(eliminated, selected, props);
   }
   get color1() {
     return this._colors[this._colors.length - 1];
@@ -88,6 +52,16 @@ var _Game = class {
   get favoriteColor() {
     return this._favoriteColorFound ? this.color1 : null;
   }
+  get properties() {
+    return {
+      favoriteColorFound: this.favoriteColor !== null,
+      currentIteration: this.currentIteration,
+      colorsRemainingCurrentIteration: this.colorsRemainingCurrentIteration
+    };
+  }
+  get testingProps() {
+    return [this._colors, this._nextIterationColors];
+  }
   selectColor(num) {
     this._updateSelectedColors(num);
     this._colorsRemainingCurrentIteration -= 2;
@@ -100,33 +74,68 @@ var _Game = class {
   shuffleColors() {
     shuffle(this._colors);
   }
-  isEliminated(color2) {
-    return this._is(color2, "eliminated");
+  isEliminated(color) {
+    return this._is(color, "eliminated");
   }
-  isSelected(color2) {
-    return this._is(color2, "selected");
+  isSelected(color) {
+    return this._is(color, "selected");
   }
   _init() {
+    let p = performance.now();
+    console.log(`begin _init()`);
+    const initColors = () => {
+      this._colors = [0, 1];
+      p = performance.now();
+      for (let i = 2; i < 16777216; i++) {
+        this._colors.push(i);
+      }
+      console.log(`loop took ${performance.now() - p}ms`);
+      p = performance.now();
+      shuffle(this._colors);
+      console.log(`shuffle took ${performance.now() - p}ms`);
+    };
     this.eliminatedColors = new Uint32Array(524288);
     this.selectedColors = new Uint32Array(524288);
     this._currentIteration = 1;
     this._colorsRemainingCurrentIteration = MAX_COLORS;
     this._favoriteColorFound = false;
     this._nextIterationColors = [];
-    this._initColors();
+    console.log(`_init() took ${performance.now() - p}ms`);
+    console.log(`begin initColors()`);
+    p = performance.now();
+    initColors();
+    console.log(`initColors() took ${performance.now() - p}ms`);
   }
-  _initColors() {
-    this._colors = [0, 1];
-    for (let i = 2; i < 16777216; i++) {
-      this._colors.push(i);
+  _load(eliminated, selected, props) {
+    this.eliminatedColors = new Uint32Array(eliminated);
+    this.selectedColors = new Uint32Array(selected);
+    this._currentIteration = props.currentIteration;
+    this._colorsRemainingCurrentIteration = props.colorsRemainingCurrentIteration;
+    this._favoriteColorFound = props.favoriteColorFound;
+    this._buildColors();
+  }
+  _buildColors() {
+    const colors = [];
+    const nextIterationColors = [];
+    for (let i = 0; i < MAX_COLORS; i++) {
+      assertColor(i);
+      if (this.isEliminated(i)) {
+        continue;
+      }
+      if (this.isSelected(i)) {
+        nextIterationColors.push(i);
+        continue;
+      }
+      colors.push(i);
     }
-    shuffle(this._colors);
+    this._colors = shuffle(colors);
+    this._nextIterationColors = nextIterationColors;
   }
   _updateSelectedColors(num) {
-    const _do = (action, color2) => {
-      const [index, bit] = this._split(color2);
+    const _do = (action, color) => {
+      const [index, bit] = this._split(color);
       const array = action === "select" ? "selectedColors" : "eliminatedColors";
-      assertColor(color2);
+      assertColor(color);
       if (action === "select") {
         this._nextIterationColors.push(this._colors.pop());
       } else {
@@ -142,10 +151,10 @@ var _Game = class {
     const rejectedColor = num === 1 ? this.color2 : this.color1;
     selectAndEliminateColors(selectedColor, rejectedColor);
   }
-  _split(color2) {
-    const [index, bit] = [color2 >> 5, 2 ** (color2 & 31)];
-    assertIndex2(index);
-    assertBit2(bit);
+  _split(color) {
+    const [index, bit] = [color >> 5, 2 ** (color & 31)];
+    assertIndex(index);
+    assertBit(bit);
     return [index, bit];
   }
   _checkForNewIteration() {
@@ -164,8 +173,8 @@ var _Game = class {
   _checkForFavoriteColor() {
     this._favoriteColorFound = this.colorsRemainingCurrentIteration === 1;
   }
-  _is(color2, testingFor) {
-    const [index, bit] = this._split(color2);
+  _is(color, testingFor) {
+    const [index, bit] = this._split(color);
     const num = testingFor === "eliminated" ? this.eliminatedColors[index] : this.selectedColors[index];
     if (num === void 0) {
       return false;
@@ -174,123 +183,217 @@ var _Game = class {
   }
 };
 
-// tests/game.test.ts
-var fsPromises = __toESM(require("fs/promises"), 1);
-var MAX_COLORS2 = 16777216;
+// scripts/user.ts
+function getUser(obj) {
+  return obj;
+}
+function guestUser() {
+  return getUser({
+    id: "guest"
+  });
+}
+
+// scripts/db.ts
+function assertUser(app2) {
+  if (!app2.user) {
+    return;
+  }
+}
+var Db = class {
+  constructor(protocol, ip, port) {
+    this._path = `${protocol}://${ip}:${port}`;
+    this._pendingSave = false;
+  }
+  async tryLogin(data) {
+    const response = await this._fetchUsers("auth-with-password", data);
+    return await this._parseResponse(response, "record");
+  }
+  async trySignup(data) {
+    const response = await this._fetchUsers("records", data);
+    return await this._parseResponse(response);
+  }
+  async save(app2) {
+    if (this._pendingSave) {
+      return false;
+    }
+    this._pendingSave = true;
+    if (!app2.user) {
+      return false;
+    }
+    assertUser(app2);
+    const game = await this._getGameIfOneExists(app2.user.id);
+    const rv = await this._createOrUpdate(app2, game?.id);
+    this._pendingSave = false;
+    return rv;
+  }
+  async load(app2) {
+    if (app2.user.id === "guest") {
+      return;
+    }
+    const game = await this._getGameIfOneExists(app2.user.id);
+    if (!game) {
+      return;
+    }
+    const [eliminatedColors, selectedColors] = await this._getFiles(game);
+    if (!eliminatedColors || !selectedColors) {
+      return;
+    }
+    app2.game = new Game(eliminatedColors, selectedColors, game.properties);
+  }
+  get path() {
+    return {
+      games: this._path + "/api/collections/games",
+      files: this._path + "/api/files/games",
+      users: this._path + "/api/collections/users"
+    };
+  }
+  async _createOrUpdate(app2, gameId) {
+    const form = this._buildForm(app2);
+    let response;
+    if (gameId) {
+      response = await this._patch(form, gameId);
+    } else {
+      response = await this._post(form);
+    }
+    const json = await response.json();
+    console.log(json);
+    return true;
+  }
+  _buildForm(app2) {
+    const elimColorBlob = new Blob([app2.game.eliminatedColors]);
+    const selectColorBlob = new Blob([app2.game.selectedColors]);
+    const form = new FormData();
+    form.set("eliminatedColors", elimColorBlob);
+    form.set("selectedColors", selectColorBlob);
+    form.set("properties", JSON.stringify(app2.game.properties));
+    form.set("user", app2.user.id);
+    return form;
+  }
+  async _post(form) {
+    const data = {
+      method: "POST",
+      body: form
+    };
+    return fetch(`${this.path.games}/records`, data);
+  }
+  async _patch(form, id) {
+    const data = {
+      method: "PATCH",
+      body: form
+    };
+    return fetch(`${this.path.games}/records/${id}`, data);
+  }
+  async _getFiles(game) {
+    return Promise.all([
+      this._getFile(game.id, game.eliminatedColors),
+      this._getFile(game.id, game.selectedColors)
+    ]);
+  }
+  async _getFile(gameId, filename) {
+    try {
+      const res = await fetch(`${this.path.files}/${gameId}/${filename}`);
+      if (!res.ok) {
+        return null;
+      }
+      return await res.arrayBuffer();
+    } catch (error) {
+      return null;
+    }
+  }
+  async _getGameIfOneExists(userId) {
+    try {
+      const response = await fetch(
+        `${this.path.games}/records?filter=(user='${userId}')`
+      );
+      if (!response.ok) {
+        return null;
+      }
+      const json = await response.json();
+      if (json.totalItems != 1) {
+        return null;
+      }
+      const game = json.items[0];
+      return {
+        id: game.id,
+        user: game.user,
+        properties: JSON.parse(game.properties),
+        eliminatedColors: game.eliminatedColors,
+        selectedColors: game.selectedColors
+      };
+    } catch (error) {
+      return null;
+    }
+  }
+  async _fetchUsers(path, data) {
+    return await fetch(`${this.path.users}/${path}`, data);
+  }
+  async _parseResponse(response, propName) {
+    const json = await response.json();
+    if (response.status != 200) {
+      return Error(json.message);
+    }
+    return getUser(propName ? json[propName] : json);
+  }
+};
+
+// tests/db.test.ts
+var app = {
+  game: new Game(),
+  user: guestUser()
+};
+var db = new Db("http", "34.42.14.226", "8090");
 function assertTrue(val) {
   if (!val) {
     throw new Error("val is not true");
   }
 }
-function loop(g, numLoops) {
-  for (let i = 0; i < numLoops; i++) {
-    g.selectColor(1);
-  }
+for (let i = 0; i < 1048575; i++) {
+  app.game.selectColor(1);
 }
-function testSelectColor() {
-  const g = new _Game();
-  let selected = g.color1;
-  let eliminated = g.color2;
-  g.selectColor(1);
-  assertTrue(g.isEliminated(eliminated));
-  assertTrue(g.isSelected(selected));
-  for (let i = 0; i < 65535; i++) {
-    selected = g.color1;
-    eliminated = g.color2;
-    g.selectColor(1);
-    assertTrue(g.isEliminated(eliminated));
-    assertTrue(g.isSelected(selected));
+async function testSaveAndLoad() {
+  const eliminated = app.game.eliminatedColors;
+  const selected = app.game.selectedColors;
+  const [colors, nextIterationColors] = app.game.testingProps;
+  await db.save(app);
+  await db.load(app);
+  for (let i2 = 0; i2 < 524288; i2++) {
+    assertTrue(eliminated[i2] === app.game.eliminatedColors[i2]);
+    assertTrue(selected[i2] === app.game.selectedColors[i2]);
   }
-  console.log("testSelectColor PASS");
-}
-function testUintArray() {
-  const ary = new Uint32Array(524288);
-  for (let i = 0; i < MAX_COLORS2; i++) {
-    const [index, bit] = _split(i);
-    const num = ary[index];
-    if (num === void 0) {
-      console.log("num is not truthy: ", num);
-      continue;
+  const [newColors, newNextIterationColors] = app.game.testingProps;
+  let i = 0, n = 0;
+  console.log("testing colors");
+  for (const color of colors) {
+    assertTrue(newColors.includes(color));
+    i++;
+    if (i % 100 === 0) {
+      console.log(".");
     }
-    assertTrue(!(num & bit));
-    ary[index] |= bit;
-  }
-  console.log("testUintArray PASS");
-}
-async function testColorUniqueness() {
-  async function _assertTrue(val) {
-    if (!val) {
-      const elimFh = await fsPromises.open("elim.txt", "w");
-      const seleFh = await fsPromises.open("sele.txt", "w");
-      const coloFh = await fsPromises.open("colo.txt", "w");
-      for (let num of g.eliminatedColors) {
-        await elimFh.write(num.toString() + "\n");
-      }
-      for (let num of g.selectedColors) {
-        await seleFh.write(num.toString() + "\n");
-      }
-      for (let num of colors) {
-        await coloFh.write(num.toString() + "\n");
-      }
-      await elimFh.close();
-      await seleFh.close();
-      await coloFh.close();
-      throw new Error("val is not true");
+    if (i % 1e3 === 0) {
+      console.log(n);
+      n++;
     }
   }
-  const g = new _Game();
-  const colors = /* @__PURE__ */ new Set();
-  for (let i = 0; i < MAX_COLORS2 / 2; i++) {
-    await _assertTrue(!colors.has(g.color1));
-    await _assertTrue(!colors.has(g.color2));
-    colors.add(g.color1);
-    colors.add(g.color2);
-    g.selectColor(1);
-  }
-  console.log("testColorUniqueness PASS");
-}
-function testCheckForNewIteration() {
-  const g = new _Game();
-  let curColors = g.colorsRemainingCurrentIteration;
-  let curIter = g.currentIteration;
-  function _assertTrue(val) {
-    if (!val) {
-      console.log(g);
-      console.log("curIter: ", curIter);
-      console.log("curColors: ", curColors);
-      assertTrue(val);
+  ;
+  i = 0, n = 0;
+  console.log("testing nextIterationColors");
+  for (const color of nextIterationColors) {
+    assertTrue(newNextIterationColors.includes(color));
+    i++;
+    if (i % 100 === 0) {
+      console.log(".");
+    }
+    if (i % 1e3 === 0) {
+      console.log(n);
+      n++;
     }
   }
-  function assertVals() {
-    _assertTrue(g.currentIteration === curIter);
-    _assertTrue(g.colorsRemainingCurrentIteration === curColors);
-  }
-  function incrementVals() {
-    curColors = MAX_COLORS2 / 2 ** curIter;
-    curIter++;
-  }
-  while (curColors !== 2) {
-    loop(g, MAX_COLORS2 / 2 ** curIter - 1);
-    _assertTrue(g.currentIteration === curIter);
-    g.selectColor(1);
-    incrementVals();
-    assertVals();
-  }
-  _assertTrue(!g.favoriteColor);
-  const c1 = g.color1;
-  g.selectColor(2);
-  _assertTrue(g.favoriteColor || g.favoriteColor === 0);
-  _assertTrue(g.favoriteColor === c1);
-  console.log(g);
-  console.log("testCheckForNewIteration PASS");
+  console.log("all are equal");
 }
-async function gameTests() {
-  testSelectColor();
-  testUintArray();
-  await testColorUniqueness();
-  testCheckForNewIteration();
+async function testDb() {
+  await testSaveAndLoad();
 }
 
 // tests/tests.ts
-gameTests();
+testDb();
 //# sourceMappingURL=tests.cjs.map

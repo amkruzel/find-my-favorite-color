@@ -2,8 +2,11 @@ import { clearAuthLocal, saveAuthLocal } from './auth'
 import { signupOrLogin, logout } from './eventHandlers'
 import { NotifyType, notify } from './notification'
 import { Game, color } from './game'
+import { App } from './app'
+import { Db } from './db'
+import { guestUser } from './user'
 
-export const addEventListeners = (game: Game) => {
+export const addEventListeners = (app: App, db: Db): void => {
     document
         .querySelector('.login')!
         .addEventListener('submit', async (e: SubmitEvent) => {
@@ -17,40 +20,51 @@ export const addEventListeners = (game: Game) => {
                 return
             }
 
-            const rv = await signupOrLogin(form, e.submitter?.dataset.action!)
+            const user = await signupOrLogin(form, e.submitter?.dataset.action!)
 
-            if (rv instanceof Error) {
-                notify(NotifyType.error, rv.message)
+            if (user instanceof Error) {
+                notify(NotifyType.error, user.message)
                 return
             }
 
+            app.user = user
+
             if (_shouldSaveAuthLocal(form)) {
-                saveAuthLocal(rv.id, rv.email)
+                saveAuthLocal(user.id, user.email)
             } else {
                 clearAuthLocal()
             }
 
             form.reset()
-            updateLogin(rv.email)
+            updateLogin(user.email)
+        })
+    document.querySelector('#logout-btn')!.addEventListener('click', e => {
+        logout(e as PointerEvent)
+        app.user = guestUser()
+    })
+    document
+        .querySelector('.new-colors')!
+        .addEventListener('click', async () => {
+            app.game.shuffleColors()
+            await db.save(app)
+            updateGameUi(app.game)
         })
     document
-        .querySelector('#logout-btn')!
-        .addEventListener('click', e => logout(e as PointerEvent))
-    document.querySelector('.new-colors')!.addEventListener('click', () => {
-        game.shuffleColors()
-        updateGameUi(game)
+        .querySelector('.clear-data')!
+        .addEventListener('click', async () => {
+            app.game.reset()
+            await db.save(app)
+            updateGameUi(app.game)
+        })
+    document.querySelector('#color1')!.addEventListener('click', async () => {
+        app.game.selectColor(1)
+        await db.save(app)
+        updateGameUi(app.game)
     })
-    document.querySelector('.clear-data')!.addEventListener('click', () => {
-        game.reset()
-        updateGameUi(game)
-    })
-    document.querySelector('#color1')!.addEventListener('click', () => {
-        game.selectColor(1)
-        updateGameUi(game)
-    })
-    document.querySelector('#color2')!.addEventListener('click', () => {
-        game.selectColor(2)
-        updateGameUi(game)
+    document.querySelector('#color2')!.addEventListener('click', async () => {
+        app.game.selectColor(2)
+        await db.save(app)
+        updateGameUi(app.game)
     })
 }
 

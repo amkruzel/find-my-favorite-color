@@ -4,6 +4,11 @@
   function getUser(obj) {
     return obj;
   }
+  function guestUser() {
+    return getUser({
+      id: "guest"
+    });
+  }
 
   // scripts/auth.ts
   async function tryLogin(data) {
@@ -113,7 +118,7 @@
   }
 
   // scripts/ui.ts
-  var addEventListeners = (game) => {
+  var addEventListeners = (app2, db2) => {
     document.querySelector(".login").addEventListener("submit", async (e) => {
       const form = e.target;
       if (!(form instanceof HTMLFormElement)) {
@@ -123,35 +128,43 @@
         );
         return;
       }
-      const rv = await signupOrLogin(form, e.submitter?.dataset.action);
-      if (rv instanceof Error) {
-        notify("error" /* error */, rv.message);
+      const user = await signupOrLogin(form, e.submitter?.dataset.action);
+      if (user instanceof Error) {
+        notify("error" /* error */, user.message);
         return;
       }
+      app2.user = user;
       if (_shouldSaveAuthLocal(form)) {
-        saveAuthLocal(rv.id, rv.email);
+        saveAuthLocal(user.id, user.email);
       } else {
         clearAuthLocal();
       }
       form.reset();
-      updateLogin(rv.email);
+      updateLogin(user.email);
     });
-    document.querySelector("#logout-btn").addEventListener("click", (e) => logout(e));
-    document.querySelector(".new-colors").addEventListener("click", () => {
-      game.shuffleColors();
-      updateGameUi(game);
+    document.querySelector("#logout-btn").addEventListener("click", (e) => {
+      logout(e);
+      app2.user = guestUser();
     });
-    document.querySelector(".clear-data").addEventListener("click", () => {
-      game.reset();
-      updateGameUi(game);
+    document.querySelector(".new-colors").addEventListener("click", async () => {
+      app2.game.shuffleColors();
+      await db2.save(app2);
+      updateGameUi(app2.game);
     });
-    document.querySelector("#color1").addEventListener("click", () => {
-      game.selectColor(1);
-      updateGameUi(game);
+    document.querySelector(".clear-data").addEventListener("click", async () => {
+      app2.game.reset();
+      await db2.save(app2);
+      updateGameUi(app2.game);
     });
-    document.querySelector("#color2").addEventListener("click", () => {
-      game.selectColor(2);
-      updateGameUi(game);
+    document.querySelector("#color1").addEventListener("click", async () => {
+      app2.game.selectColor(1);
+      await db2.save(app2);
+      updateGameUi(app2.game);
+    });
+    document.querySelector("#color2").addEventListener("click", async () => {
+      app2.game.selectColor(2);
+      await db2.save(app2);
+      updateGameUi(app2.game);
     });
   };
   function updateLogin(user) {
@@ -220,8 +233,12 @@
     return array;
   }
   var Game = class {
-    constructor() {
-      this._init();
+    constructor(eliminated, selected, props) {
+      if (!eliminated || !selected || !props) {
+        this._init();
+      } else {
+        this._load(eliminated, selected, props);
+      }
     }
     get color1() {
       return this._colors[this._colors.length - 1];
@@ -237,6 +254,18 @@
     }
     get favoriteColor() {
       return this._favoriteColorFound ? this.color1 : null;
+    }
+    get properties() {
+      return {
+        favoriteColorFound: this.favoriteColor !== null,
+        currentIteration: this.currentIteration,
+        colorsRemainingCurrentIteration: this.colorsRemainingCurrentIteration,
+        color1: this.color1,
+        color2: this.color2
+      };
+    }
+    get testingProps() {
+      return [this._colors, this._nextIterationColors];
     }
     selectColor(num) {
       this._updateSelectedColors(num);
@@ -257,12 +286,18 @@
       return this._is(color, "selected");
     }
     _init() {
+      let p = performance.now();
+      console.log(`begin _init()`);
       const initColors = () => {
         this._colors = [0, 1];
+        p = performance.now();
         for (let i = 2; i < 16777216; i++) {
           this._colors.push(i);
         }
+        console.log(`loop took ${performance.now() - p}ms`);
+        p = performance.now();
         shuffle(this._colors);
+        console.log(`shuffle took ${performance.now() - p}ms`);
       };
       this.eliminatedColors = new Uint32Array(524288);
       this.selectedColors = new Uint32Array(524288);
@@ -270,7 +305,40 @@
       this._colorsRemainingCurrentIteration = MAX_COLORS;
       this._favoriteColorFound = false;
       this._nextIterationColors = [];
+      console.log(`_init() took ${performance.now() - p}ms`);
+      console.log(`begin initColors()`);
+      p = performance.now();
       initColors();
+      console.log(`initColors() took ${performance.now() - p}ms`);
+    }
+    _load(eliminated, selected, props) {
+      this.eliminatedColors = new Uint32Array(eliminated);
+      this.selectedColors = new Uint32Array(selected);
+      this._currentIteration = props.currentIteration;
+      this._colorsRemainingCurrentIteration = props.colorsRemainingCurrentIteration;
+      this._favoriteColorFound = props.favoriteColorFound;
+      assertColor(props.color1);
+      assertColor(props.color2);
+      this._buildColors(props.color1, props.color2);
+    }
+    _buildColors(color1, color2) {
+      const colors = [];
+      const nextIterationColors = [];
+      for (let i = 0; i < MAX_COLORS; i++) {
+        assertColor(i);
+        if (this.isEliminated(i) || i == color1 || i == color2) {
+          continue;
+        }
+        if (this.isSelected(i)) {
+          nextIterationColors.push(i);
+          continue;
+        }
+        colors.push(i);
+      }
+      this._colors = shuffle(colors);
+      this._colors.push(color2);
+      this._colors.push(color1);
+      this._nextIterationColors = nextIterationColors;
     }
     _updateSelectedColors(num) {
       const _do = (action, color) => {
@@ -324,15 +392,170 @@
     }
   };
 
+  // scripts/db.ts
+  function assertUser(app2) {
+    if (!app2.user) {
+      return;
+    }
+  }
+  var Db = class {
+    constructor(protocol, ip, port) {
+      this._path = `${protocol}://${ip}:${port}`;
+      this._pendingSave = false;
+    }
+    async tryLogin(data) {
+      const response = await this._fetchUsers("auth-with-password", data);
+      return await this._parseResponse(response, "record");
+    }
+    async trySignup(data) {
+      const response = await this._fetchUsers("records", data);
+      return await this._parseResponse(response);
+    }
+    async save(app2) {
+      if (app2.user.id === "guest") {
+        return false;
+      }
+      if (this._pendingSave) {
+        return false;
+      }
+      this._pendingSave = true;
+      assertUser(app2);
+      const game = await this._getGameIfOneExists(app2.user.id);
+      console.log(game);
+      const rv = await this._createOrUpdate(app2, game?.id);
+      this._pendingSave = false;
+      console.log("game saved!");
+      return rv;
+    }
+    async load(app2) {
+      if (app2.user.id === "guest") {
+        return;
+      }
+      const game = await this._getGameIfOneExists(app2.user.id);
+      if (!game) {
+        return;
+      }
+      const [eliminatedColors, selectedColors] = await this._getFiles(game);
+      if (!eliminatedColors || !selectedColors) {
+        return;
+      }
+      app2.game = new Game(eliminatedColors, selectedColors, game.properties);
+      console.log("game loaded!");
+    }
+    get path() {
+      return {
+        games: this._path + "/api/collections/games",
+        files: this._path + "/api/files/games",
+        users: this._path + "/api/collections/users"
+      };
+    }
+    async _createOrUpdate(app2, gameId) {
+      const form = this._buildForm(app2);
+      let response;
+      if (gameId) {
+        response = await this._patch(form, gameId);
+      } else {
+        response = await this._post(form);
+      }
+      const json = await response.json();
+      console.log(json);
+      return true;
+    }
+    _buildForm(app2) {
+      const elimColorBlob = new Blob([app2.game.eliminatedColors]);
+      const selectColorBlob = new Blob([app2.game.selectedColors]);
+      const form = new FormData();
+      form.set("eliminatedColors", elimColorBlob);
+      form.set("selectedColors", selectColorBlob);
+      form.set("properties", JSON.stringify(app2.game.properties));
+      form.set("user", app2.user.id);
+      return form;
+    }
+    async _post(form) {
+      const data = {
+        method: "POST",
+        body: form
+      };
+      return fetch(`${this.path.games}/records`, data);
+    }
+    async _patch(form, id) {
+      const data = {
+        method: "PATCH",
+        body: form
+      };
+      return fetch(`${this.path.games}/records/${id}`, data);
+    }
+    async _getFiles(game) {
+      console.log("_getFiles");
+      return Promise.all([
+        this._getFile(game.id, game.eliminatedColors),
+        this._getFile(game.id, game.selectedColors)
+      ]);
+    }
+    async _getFile(gameId, filename) {
+      try {
+        const res = await fetch(`${this.path.files}/${gameId}/${filename}`);
+        if (!res.ok) {
+          return null;
+        }
+        return await res.arrayBuffer();
+      } catch (error) {
+        return null;
+      }
+    }
+    async _getGameIfOneExists(userId) {
+      console.log("_getGameIfOneExists");
+      try {
+        const response = await fetch(
+          `${this.path.games}/records?filter=(user='${userId}')`
+        );
+        if (!response.ok) {
+          return null;
+        }
+        const json = await response.json();
+        if (json.totalItems != 1) {
+          return null;
+        }
+        const game = json.items[0];
+        console.log(game);
+        return {
+          id: game.id,
+          user: game.user,
+          properties: game.properties,
+          eliminatedColors: game.eliminatedColors,
+          selectedColors: game.selectedColors
+        };
+      } catch (error) {
+        console.log(error);
+        return null;
+      }
+    }
+    async _fetchUsers(path, data) {
+      return await fetch(`${this.path.users}/${path}`, data);
+    }
+    async _parseResponse(response, propName) {
+      const json = await response.json();
+      if (response.status != 200) {
+        return Error(json.message);
+      }
+      return getUser(propName ? json[propName] : json);
+    }
+  };
+
   // scripts/app.ts
   var app = {
-    game: new Game()
+    game: new Game(),
+    user: guestUser()
   };
-  addEventListeners(app.game);
+  var db = new Db("http", "34.42.14.226", "8090");
+  addEventListeners(app, db);
   tryLocalLogin().then((response) => {
     if (response instanceof Error || !response) {
       return;
     }
+    app.user = response;
+    console.log("logged in");
+    db.load(app).then(() => updateGameUi(app.game));
     updateLogin(response.email);
   });
   updateGameUi(app.game);

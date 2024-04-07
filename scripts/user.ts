@@ -15,3 +15,9 @@ export interface User {
 export function getUser(obj: {}): User {
     return obj as User
 }
+
+export function guestUser(): User {
+    return getUser({
+        id: 'guest',
+    })
+}
