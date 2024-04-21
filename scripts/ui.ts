@@ -46,25 +46,28 @@ export const addEventListeners = (app: App, db: Db): void => {
         .querySelector('.new-colors')!
         .addEventListener('click', async () => {
             app.game.shuffleColors()
-            await db.save(app)
+            db.save(app)
             updateGameUi(app.game)
         })
     document
         .querySelector('.clear-data')!
         .addEventListener('click', async () => {
             app.game.reset()
-            await db.save(app)
+            db.save(app)
             updateGameUi(app.game)
         })
     document.querySelector('#color1')!.addEventListener('click', async () => {
         app.game.selectColor(1)
-        await db.save(app)
+        db.save(app)
         updateGameUi(app.game)
     })
     document.querySelector('#color2')!.addEventListener('click', async () => {
         app.game.selectColor(2)
-        await db.save(app)
+        db.save(app)
         updateGameUi(app.game)
+    })
+    document.querySelector('.debug')!.addEventListener('click', () => {
+        console.log(app)
     })
 }
 

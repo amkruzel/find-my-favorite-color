@@ -40,18 +40,6 @@ label {
     overflow: hidden;
 }
 
-/* temp */
-#color1 {
-    background-color: #a4f23e;
-}
-
-#color2 {
-    background-color: #6348ba;
-}
-
-
-/* end temp */
-
 .form-field {
     display: grid;
     grid-auto-flow: column;

@@ -1,9 +1,72 @@
-import { Game, color } from 'scripts/game'
+import { Game, color, colorsAry } from 'scripts/game'
+import { Colors } from 'scripts/colors'
 
 //import * as fs from 'fs'
 import * as fsPromises from 'fs/promises'
 
 const MAX_COLORS = 0x1000000
+
+class TestColors extends Colors {
+    constructor() {
+        super()
+    }
+
+    protected background() {
+        const tmpClr = this.ary
+        let newColors: number[] = []
+        for (let i = 0; i < MAX_COLORS; i++) {
+            if (tmpClr.includes(i as color)) {
+                continue
+            }
+            newColors.push(i)
+        }
+
+        newColors = shuffle(newColors)
+
+        const HUNDRED_THOU = 100000
+        for (let i = 0; i < 170; i++) {
+            const min = i * HUNDRED_THOU
+            const max = min + HUNDRED_THOU
+
+            if (min >= MAX_COLORS) {
+                break
+            }
+
+            const subset = newColors.slice(min, max)
+
+            this.ary.splice(0, 0, ...(subset as colorsAry))
+        }
+    }
+}
+
+class TestGame extends Game {
+    constructor() {
+        super()
+    }
+
+    protected _buildColors() {
+        this._colors = new TestColors()
+    }
+}
+
+function shuffle<T>(array: T[]): T[] {
+    let currentIndex = array.length
+
+    // While there remain elements to shuffle...
+    while (currentIndex != 0) {
+        // Pick a remaining element...
+        let randomIndex = Math.floor(Math.random() * currentIndex)
+        currentIndex--
+
+        // And swap it with the current element.
+        ;[array[currentIndex], array[randomIndex]] = [
+            array[randomIndex],
+            array[currentIndex],
+        ] as [T, T]
+    }
+
+    return array
+}
 
 function assertTrue(val: any): asserts val is true {
     if (!val) {
@@ -23,7 +86,7 @@ function _split(color: color) {
 }
 
 function testSelectColor() {
-    const g = new Game()
+    const g = new TestGame()
     let selected: color = g.color1
     let eliminated: color = g.color2
     g.selectColor(1)
@@ -70,11 +133,11 @@ async function testColorUniqueness() {
             const seleFh = await fsPromises.open('sele.txt', 'w')
             const coloFh = await fsPromises.open('colo.txt', 'w')
 
-            for (let num of g.eliminatedColors) {
+            for (let num of g.eliminatedColors.raw) {
                 await elimFh.write(num.toString() + '\n')
             }
 
-            for (let num of g.selectedColors) {
+            for (let num of g.selectedColors.raw) {
                 await seleFh.write(num.toString() + '\n')
             }
 
@@ -90,7 +153,7 @@ async function testColorUniqueness() {
         }
     }
 
-    const g = new Game()
+    const g = new TestGame()
     const colors = new Set<color>()
 
     for (let i = 0; i < MAX_COLORS / 2; i++) {
@@ -107,7 +170,7 @@ async function testColorUniqueness() {
 }
 
 function testCheckForNewIteration() {
-    const g = new Game()
+    const g = new TestGame()
     let curColors: number = g.colorsRemainingCurrentIteration
     let curIter: number = g.currentIteration
 
@@ -146,23 +209,7 @@ function testCheckForNewIteration() {
     g.selectColor(2)
     _assertTrue(g.favoriteColor || g.favoriteColor === 0)
     _assertTrue(g.favoriteColor === c1)
-    console.log(g)
     console.log('testCheckForNewIteration PASS')
-}
-
-function test_split() {
-    for (let i = 0; i < 1000; i++) {
-        const color = Math.floor(Math.random() * 0x1000000) as color
-
-        const [index, bit] = _split(color)
-
-        const cStr = color.toString(2)
-        const iStr = index!.toString(2)
-        const bStr = bit!.toString(2)
-
-        console.log(`color: ${cStr}`)
-        console.log(`[${iStr}] [${bStr}]`)
-    }
 }
 
 export async function gameTests() {
@@ -170,5 +217,4 @@ export async function gameTests() {
     testUintArray()
     await testColorUniqueness()
     testCheckForNewIteration()
-    //test_split()
 }

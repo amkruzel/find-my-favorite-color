@@ -1,38 +1,38 @@
+import { CondensedColors } from './condensedColors'
+import { Colors } from './colors'
+
 const MAX_COLORS = 0x1000000
 
 export type color = number & { __type: color }
-type index = number & { __type: index }
-type bit = number & { __type: bit }
-type colorsAry = [color, color, ...color[]]
+export type colorsAry = [color, color, ...color[]]
 
 export interface GameProps {
     favoriteColorFound: boolean
     currentIteration: number
     colorsRemainingCurrentIteration: number
-    color1: number
-    color2: number
 }
 
 function assertColor(value: number): asserts value is color {
     if (parseInt(`${value}`) !== value || value < 0 || value > 0xffffff) {
-        throw new Error('Not a color!')
+        throw new Error(value + 'is not a color!')
     }
 }
 
-function assertIndex(value: number): asserts value is index {
-    if (parseInt(`${value}`) !== value || value < 0 || value > 0x80000) {
-        throw new Error('Not an index!')
-    }
-}
-
-function assertBit(value: number): asserts value is bit {
-    if (parseInt(`${value}`) !== value || value < 0 || value & (value - 1)) {
-        throw new Error('Not a bit!')
+function assertColorsAry(ary: number[]): asserts ary is colorsAry {
+    if (
+        !ary.every(elem => {
+            assertColor(elem)
+            return true
+        }) ||
+        ary.length < 2
+    ) {
+        console.log(ary)
+        throw new Error('Not a colorsAry!')
     }
 }
 
 // https://stackoverflow.com/questions/2450954/how-to-randomize-shuffle-a-javascript-array
-function shuffle<T>(array: T[]): T[] {
+export function shuffle<T>(array: T[]): T[] {
     let currentIndex = array.length
 
     // While there remain elements to shuffle...
@@ -52,32 +52,39 @@ function shuffle<T>(array: T[]): T[] {
 }
 
 export class Game {
-    eliminatedColors: Uint32Array
-    selectedColors: Uint32Array
+    eliminatedColors: CondensedColors
+    selectedColors: CondensedColors
     private _favoriteColorFound: boolean
     private _currentIteration: number
     private _colorsRemainingCurrentIteration: number
-    private _colors: colorsAry
+    _colors: Colors
+
+    // TODO
+    // this should/could be implemented as a Uint32Array, representing a list of colors
+    // for the next iteration
     private _nextIterationColors: color[]
+
+    private _bgJobInstant: number = 0
 
     constructor(
         eliminated?: ArrayBuffer,
         selected?: ArrayBuffer,
+        colors?: ArrayBuffer,
         props?: GameProps
     ) {
-        if (!eliminated || !selected || !props) {
+        if (!eliminated || !selected || !colors || !props) {
             this._init()
         } else {
-            this._load(eliminated, selected, props)
+            this._load(eliminated, selected, colors, props)
         }
     }
 
     get color1() {
-        return this._colors[this._colors.length - 1] as color
+        return this._colors.color1
     }
 
     get color2() {
-        return this._colors[this._colors.length - 2] as color
+        return this._colors.color2
     }
 
     get currentIteration() {
@@ -98,13 +105,24 @@ export class Game {
             currentIteration: this.currentIteration,
             colorsRemainingCurrentIteration:
                 this.colorsRemainingCurrentIteration,
-            color1: this.color1,
-            color2: this.color2,
         }
     }
 
     get testingProps(): [color[], color[]] {
-        return [this._colors, this._nextIterationColors]
+        return [this._colors.raw, this._nextIterationColors]
+    }
+
+    get next1000Colors(): Uint32Array {
+        return this._colors.next1000Colors
+    }
+
+    private get _reloadBgKey(): number {
+        this._bgJobInstant = Date.now()
+        return this._getBgKey
+    }
+
+    private get _getBgKey(): number {
+        return this._bgJobInstant
     }
 
     selectColor(num: 1 | 2) {
@@ -119,104 +137,98 @@ export class Game {
     }
 
     shuffleColors() {
-        shuffle(this._colors)
+        this._colors.shuffle()
     }
 
     isEliminated(color: color) {
-        return this._is(color, 'eliminated')
+        return this.eliminatedColors.has(color)
     }
 
     isSelected(color: color) {
-        return this._is(color, 'selected')
+        return this.selectedColors.has(color)
     }
 
     private _init() {
-        let p = performance.now()
-        console.log(`begin _init()`)
-
-        const initColors = (): void => {
-            this._colors = [0, 1] as [color, color]
-            p = performance.now()
-            for (let i = 2; i < 0x1000000; i++) {
-                this._colors.push(i as color)
-            }
-            console.log(`loop took ${performance.now() - p}ms`)
-            p = performance.now()
-            shuffle(this._colors)
-            console.log(`shuffle took ${performance.now() - p}ms`)
-        }
-
-        this.eliminatedColors = new Uint32Array(0x80000)
-        this.selectedColors = new Uint32Array(0x80000)
+        this.eliminatedColors = new CondensedColors()
+        this.selectedColors = new CondensedColors()
         this._currentIteration = 1
         this._colorsRemainingCurrentIteration = MAX_COLORS
         this._favoriteColorFound = false
         this._nextIterationColors = []
-        console.log(`_init() took ${performance.now() - p}ms`)
 
-        console.log(`begin initColors()`)
-
-        p = performance.now()
-        initColors()
-        console.log(`initColors() took ${performance.now() - p}ms`)
+        this._buildColors()
     }
 
     private _load(
         eliminated: ArrayBuffer,
         selected: ArrayBuffer,
+        colors: ArrayBuffer,
         props: GameProps
     ) {
-        this.eliminatedColors = new Uint32Array(eliminated)
-        this.selectedColors = new Uint32Array(selected)
+        this.eliminatedColors = new CondensedColors(eliminated)
+        this.selectedColors = new CondensedColors(selected)
         this._currentIteration = props.currentIteration
         this._colorsRemainingCurrentIteration =
             props.colorsRemainingCurrentIteration
         this._favoriteColorFound = props.favoriteColorFound
 
-        assertColor(props.color1)
-        assertColor(props.color2)
+        const tempColors = Array.from(new Uint32Array(colors))
+        assertColorsAry(tempColors)
+        //this._colors = tempColors
 
-        this._buildColors(props.color1, props.color2)
+        this._loadColors()
     }
 
-    private _buildColors(color1: color, color2: color) {
-        const colors = []
-        const nextIterationColors = []
-
-        for (let i = 0; i < MAX_COLORS; i++) {
-            assertColor(i)
-
-            if (this.isEliminated(i) || i == color1 || i == color2) {
-                continue
-            }
-
-            if (this.isSelected(i)) {
-                nextIterationColors.push(i)
-                continue
-            }
-
-            colors.push(i)
+    private _loadColors() {
+        console.log('_loadColorsBg')
+        const worker = new Worker('workers/loadColors.js')
+        const data = {
+            colors: this._colors,
+            eliminatedColors: this.eliminatedColors,
+            selectedColors: this.selectedColors,
         }
+        worker.postMessage([data, this._reloadBgKey])
+        worker.addEventListener('message', msg => {
+            const [[colors, nextIterationColors], oldKey] = msg.data
 
-        this._colors = shuffle(colors) as colorsAry
-        this._colors.push(color2)
-        this._colors.push(color1)
-        this._nextIterationColors = nextIterationColors
+            if (oldKey !== this._getBgKey) {
+                return
+            }
+
+            assertColorsAry(colors)
+            assertColorsAry(nextIterationColors)
+
+            //colors.push(...this._colors)
+            //this._colors = colors
+
+            nextIterationColors.push(...this._nextIterationColors)
+            this._nextIterationColors = nextIterationColors
+        })
+    }
+
+    /**
+     * The primary purpose of this method is to allow for easier testing.
+     * This method is overridded in the test class so that a worker thread is
+     * not used.
+     */
+    protected _buildColors() {
+        this._colors = new Colors()
     }
 
     private _updateSelectedColors(num: 1 | 2): void {
         const _do = (action: 'select' | 'eliminate', color: color): void => {
-            const [index, bit] = this._split(color)
             const array =
-                action === 'select' ? 'selectedColors' : 'eliminatedColors'
+                action === 'select'
+                    ? this.selectedColors
+                    : this.eliminatedColors
 
-            assertColor(color)
+            const c = this._colors.pop()
+
             if (action === 'select') {
-                this._nextIterationColors.push(this._colors.pop()!)
-            } else {
-                this._colors.pop()
+                this._nextIterationColors.push(c)
             }
-            this[array][index] |= bit
+
+            array.add(color)
         }
 
         const selectAndEliminateColors = (select: color, elim: color): void => {
@@ -230,13 +242,6 @@ export class Game {
         selectAndEliminateColors(selectedColor, rejectedColor)
     }
 
-    private _split(color: color): [index, bit] {
-        const [index, bit] = [color >> 5, 2 ** (color & 31)]
-        assertIndex(index)
-        assertBit(bit)
-        return [index, bit]
-    }
-
     private _checkForNewIteration() {
         if (this.colorsRemainingCurrentIteration !== 0) {
             return
@@ -245,32 +250,22 @@ export class Game {
         this._colorsRemainingCurrentIteration =
             MAX_COLORS / 2 ** this.currentIteration
         this._currentIteration++
-        this.selectedColors = new Uint32Array(0x80000)
+        this.selectedColors.reset()
 
-        if (this._nextIterationColors.length < 1) {
+        const numColorsRemaining = this._nextIterationColors.length
+
+        if (numColorsRemaining < 1) {
             throw new Error('Array is empty but should not be')
+        } else if (numColorsRemaining === 1) {
+            this._nextIterationColors.push(this._nextIterationColors[0]!)
         }
 
-        this._colors = shuffle(this._nextIterationColors) as colorsAry
+        const ary = shuffle(this._nextIterationColors)
+        this._colors.reset(ary)
         this._nextIterationColors = []
     }
 
     private _checkForFavoriteColor() {
         this._favoriteColorFound = this.colorsRemainingCurrentIteration === 1
-    }
-
-    private _is(color: color, testingFor: 'eliminated' | 'selected'): boolean {
-        const [index, bit] = this._split(color)
-
-        const num =
-            testingFor === 'eliminated'
-                ? this.eliminatedColors[index]
-                : this.selectedColors[index]
-
-        if (num === undefined) {
-            return false
-        }
-
-        return !!(num & bit)
     }
 }

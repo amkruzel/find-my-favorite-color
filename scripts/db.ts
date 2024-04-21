@@ -8,6 +8,7 @@ interface GameData {
     properties: GameProps
     eliminatedColors: string
     selectedColors: string
+    colors: string
 }
 
 interface AuthData {
@@ -66,8 +67,6 @@ export class Db {
 
         this._pendingSave = false
 
-        console.log('game saved!')
-
         return rv
     }
 
@@ -82,14 +81,20 @@ export class Db {
             return
         }
 
-        const [eliminatedColors, selectedColors] = await this._getFiles(game)
+        const [eliminatedColors, selectedColors, colors] = await this._getFiles(
+            game
+        )
 
-        if (!eliminatedColors || !selectedColors) {
+        if (!eliminatedColors || !selectedColors || !colors) {
             return
         }
 
-        app.game = new Game(eliminatedColors, selectedColors, game.properties)
-        console.log('game loaded!')
+        app.game = new Game(
+            eliminatedColors,
+            selectedColors,
+            colors,
+            game.properties
+        )
     }
 
     private get path() {
@@ -113,22 +118,19 @@ export class Db {
         } else {
             response = await this._post(form)
         }
-
-        const json = await response.json()
-
-        console.log(json)
-
         return true
     }
 
     private _buildForm(app: AppWithUser): FormData {
-        const elimColorBlob = new Blob([app.game.eliminatedColors])
-        const selectColorBlob = new Blob([app.game.selectedColors])
+        const elimColorBlob = app.game.eliminatedColors.blob
+        const selectColorBlob = app.game.selectedColors.blob
+        const colorsBlob = new Blob([app.game.next1000Colors])
 
         const form = new FormData()
 
         form.set('eliminatedColors', elimColorBlob)
         form.set('selectedColors', selectColorBlob)
+        form.set('colors', colorsBlob)
         form.set('properties', JSON.stringify(app.game.properties))
         form.set('user', app.user.id)
 
@@ -154,11 +156,10 @@ export class Db {
     }
 
     private async _getFiles(game: GameData) {
-        console.log('_getFiles')
-
         return Promise.all([
             this._getFile(game.id, game.eliminatedColors),
             this._getFile(game.id, game.selectedColors),
+            this._getFile(game.id, game.colors),
         ])
     }
 
@@ -181,8 +182,6 @@ export class Db {
     private async _getGameIfOneExists(
         userId: string
     ): Promise<GameData | null> {
-        console.log('_getGameIfOneExists')
-
         try {
             const response = await fetch(
                 `${this.path.games}/records?filter=(user='${userId}')`
@@ -200,14 +199,13 @@ export class Db {
 
             const game = json.items[0]
 
-            console.log(game)
-
             return {
                 id: game.id,
                 user: game.user,
                 properties: game.properties,
                 eliminatedColors: game.eliminatedColors,
                 selectedColors: game.selectedColors,
+                colors: game.colors,
             }
         } catch (error) {
             console.log(error)

@@ -19,14 +19,11 @@ const db = new Db('http', '34.42.14.226', '8090')
 addEventListeners(app, db)
 tryLocalLogin().then(response => {
     if (response instanceof Error || !response) {
+        updateGameUi(app.game)
         return
     }
 
     app.user = response
-    console.log('logged in')
-
     db.load(app).then(() => updateGameUi(app.game))
     updateLogin(response.email)
 })
-
-updateGameUi(app.game)
