@@ -160,11 +160,11 @@ export class Colors {
         this.ary = tmp
 
         // background
-        this.loadBg()
+        this.loadBg(data.eliminated, data.selected)
         
     }
 
-    private loadBg() {
+    private loadBg(eliminated: CondensedColors, selected: CondensedColors) {
         console.log('_buildColorsBg')
         const worker = new Worker('workers/loadColors.js')
         worker.postMessage([this.ary, this.reloadBgKey])
