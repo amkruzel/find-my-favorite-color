@@ -1,4 +1,5 @@
 import { color, colorsAry } from './game'
+import { CondensedColors } from './condensedColors'
 
 const MAX_COLORS = 0x1000000
 
@@ -41,13 +42,23 @@ function shuffle<T>(array: T[]): T[] {
     return array
 }
 
+interface ColorsLoadData {
+    next1000: ArrayBuffer, 
+    eliminated: CondensedColors, 
+    selected: CondensedColors
+}
+
 export class Colors {
     private selectedColors: color[]
     protected ary: colorsAry
     private static bgKey: number
 
-    constructor() {
-        this.init()
+    constructor(data?: ColorsLoadData) {
+        if (data) {
+            this.load(data)
+        } else {
+            this.init()
+        }
     }
 
     get color1(): color {
@@ -140,6 +151,19 @@ export class Colors {
 
     private pop2(): void {
         this.ary.splice(this.ary.length - 2, 2)
+    }
+
+    private load(data: ColorsLoadData) {
+        // first 1000
+        const tmp = Array.from(new Uint32Array(data.next1000))
+        assertColorsAry(tmp)
+        this.ary = tmp
+
+        // background
+        
+    }
+
+    private loadBg() {
     }
 
     private init() {
