@@ -93,6 +93,18 @@ function assertColorsAry(ary) {
     throw new Error("Not a colorsAry!");
   }
 }
+function shuffle(array) {
+  let currentIndex = array.length;
+  while (currentIndex != 0) {
+    let randomIndex = Math.floor(Math.random() * currentIndex);
+    currentIndex--;
+    [array[currentIndex], array[randomIndex]] = [
+      array[randomIndex],
+      array[currentIndex]
+    ];
+  }
+  return array;
+}
 var Colors = class _Colors {
   constructor() {
     this.init();
@@ -117,6 +129,9 @@ var Colors = class _Colors {
   get raw() {
     return this.ary;
   }
+  get nextIter() {
+    return this.selectedColors;
+  }
   shuffle() {
     const c1 = this.ary.shift();
     const c2 = this.ary.shift();
@@ -125,12 +140,31 @@ var Colors = class _Colors {
     }
     this.ary.push(c1, c2);
   }
-  pop() {
-    const c = this.ary.pop();
-    if (c === void 0) {
-      throw new Error("Color is undefined!");
+  /**
+   *
+   * @param num Updates ary, ensuring that there are always >= 2 elements
+   * If this.ary.length == 2 at the beginning of the method, then both elements
+   * will be the same at the end - the selected color
+   * @return the colors in the format `[selected, rejected]`
+   */
+  selectColor(num) {
+    const selectedColor = num === 1 ? this.color1 : this.color2;
+    const rejectedColor = num === 1 ? this.color2 : this.color1;
+    this.selectedColors.push(selectedColor);
+    if (this.ary.length > 2) {
+      this.pop2();
+    } else {
+      if (this.ary.length !== 2) {
+        throw new Error("Array is the incorrect length");
+      }
+      const favoriteColorFound = this.selectedColors.length === 1;
+      if (favoriteColorFound) {
+        this.selectedColors.push(this.selectedColors[0]);
+      }
+      this.reset(shuffle(this.selectedColors));
+      this.selectedColors = [];
     }
-    return c;
+    return [selectedColor, rejectedColor];
   }
   reset(newAry) {
     assertColorsAry(newAry);
@@ -140,8 +174,12 @@ var Colors = class _Colors {
     _Colors.bgKey = Date.now();
     return _Colors.bgKey;
   }
+  pop2() {
+    this.ary.splice(this.ary.length - 2, 2);
+  }
   init() {
     this.ary = new Array();
+    this.selectedColors = [];
     this.first1000();
     this.background();
   }
@@ -188,18 +226,6 @@ function assertColorsAry2(ary) {
     throw new Error("Not a colorsAry!");
   }
 }
-function shuffle(array) {
-  let currentIndex = array.length;
-  while (currentIndex != 0) {
-    let randomIndex = Math.floor(Math.random() * currentIndex);
-    currentIndex--;
-    [array[currentIndex], array[randomIndex]] = [
-      array[randomIndex],
-      array[currentIndex]
-    ];
-  }
-  return array;
-}
 var Game = class {
   constructor(eliminated, selected, colors, props) {
     this._bgJobInstant = 0;
@@ -232,7 +258,7 @@ var Game = class {
     };
   }
   get testingProps() {
-    return [this._colors.raw, this._nextIterationColors];
+    return [this._colors.raw, this._colors.nextIter];
   }
   get next1000Colors() {
     return this._colors.next1000Colors;
@@ -245,7 +271,7 @@ var Game = class {
     return this._bgJobInstant;
   }
   selectColor(num) {
-    this._updateSelectedColors(num);
+    this._select(num);
     this._colorsRemainingCurrentIteration -= 2;
     this._checkForNewIteration();
     this._checkForFavoriteColor();
@@ -268,7 +294,6 @@ var Game = class {
     this._currentIteration = 1;
     this._colorsRemainingCurrentIteration = MAX_COLORS2;
     this._favoriteColorFound = false;
-    this._nextIterationColors = [];
     this._buildColors();
   }
   _load(eliminated, selected, colors, props) {
@@ -297,51 +322,20 @@ var Game = class {
       }
       assertColorsAry2(colors);
       assertColorsAry2(nextIterationColors);
-      nextIterationColors.push(...this._nextIterationColors);
-      this._nextIterationColors = nextIterationColors;
     });
   }
+  /**
+   * The primary purpose of this method is to allow for easier testing.
+   * This method is overridded in the test class so that a worker thread is
+   * not used.
+   */
   _buildColors() {
     this._colors = new Colors();
   }
-  /**
-   * This method does not validate that the colors have not been eliminated or selected
-   */
-  _get1000Colors() {
-    for (let i = 0; i < 1e3; i++) {
-      let color2 = ~~(Math.random() * MAX_COLORS2);
-      assertColor2(color2);
-    }
-  }
-  _buildColorsBackground() {
-    console.log("_buildColorsBg");
-    const worker = new Worker("workers/initColors.js");
-    worker.postMessage([this._colors, this._reloadBgKey]);
-    worker.addEventListener("message", (msg) => {
-      const [colors, oldKey] = msg.data;
-      if (oldKey !== this._getBgKey) {
-        return;
-      }
-      console.log(colors);
-      assertColorsAry2(colors);
-    });
-  }
-  _updateSelectedColors(num) {
-    const _do = (action, color2) => {
-      const array = action === "select" ? this.selectedColors : this.eliminatedColors;
-      const c = this._colors.pop();
-      if (action === "select") {
-        this._nextIterationColors.push(c);
-      }
-      array.add(color2);
-    };
-    const selectAndEliminateColors = (select, elim) => {
-      _do("select", select);
-      _do("eliminate", elim);
-    };
-    const selectedColor = num === 1 ? this.color1 : this.color2;
-    const rejectedColor = num === 1 ? this.color2 : this.color1;
-    selectAndEliminateColors(selectedColor, rejectedColor);
+  _select(num) {
+    const [selected, rejected] = this._colors.selectColor(num);
+    this.selectedColors.add(selected);
+    this.eliminatedColors.add(rejected);
   }
   _checkForNewIteration() {
     if (this.colorsRemainingCurrentIteration !== 0) {
@@ -350,15 +344,6 @@ var Game = class {
     this._colorsRemainingCurrentIteration = MAX_COLORS2 / 2 ** this.currentIteration;
     this._currentIteration++;
     this.selectedColors.reset();
-    const numColorsRemaining = this._nextIterationColors.length;
-    if (numColorsRemaining < 1) {
-      throw new Error("Array is empty but should not be");
-    } else if (numColorsRemaining === 1) {
-      this._nextIterationColors.push(this._nextIterationColors[0]);
-    }
-    const ary = shuffle(this._nextIterationColors);
-    this._colors.reset(ary);
-    this._nextIterationColors = [];
   }
   _checkForFavoriteColor() {
     this._favoriteColorFound = this.colorsRemainingCurrentIteration === 1;
@@ -519,9 +504,11 @@ function testCheckForNewIteration() {
   }
   _assertTrue(!g.favoriteColor);
   const c1 = g.color1;
+  const c2 = g.color2;
+  console.log(c1, c2);
   g.selectColor(2);
   _assertTrue(g.favoriteColor || g.favoriteColor === 0);
-  _assertTrue(g.favoriteColor === c1);
+  _assertTrue(g.favoriteColor === c2);
   console.log("testCheckForNewIteration PASS");
 }
 async function gameTests() {

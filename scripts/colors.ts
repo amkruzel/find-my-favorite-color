@@ -21,7 +21,28 @@ function assertColorsAry(ary: number[]): asserts ary is colorsAry {
     }
 }
 
+// https://stackoverflow.com/questions/2450954/how-to-randomize-shuffle-a-javascript-array
+function shuffle<T>(array: T[]): T[] {
+    let currentIndex = array.length
+
+    // While there remain elements to shuffle...
+    while (currentIndex != 0) {
+        // Pick a remaining element...
+        let randomIndex = Math.floor(Math.random() * currentIndex)
+        currentIndex--
+
+        // And swap it with the current element.
+        ;[array[currentIndex], array[randomIndex]] = [
+            array[randomIndex],
+            array[currentIndex],
+        ] as [T, T]
+    }
+
+    return array
+}
+
 export class Colors {
+    private selectedColors: color[]
     protected ary: colorsAry
     private static bgKey: number
 
@@ -57,6 +78,10 @@ export class Colors {
         return this.ary
     }
 
+    get nextIter(): color[] {
+        return this.selectedColors
+    }
+
     shuffle(): void {
         const c1 = this.ary.shift()
         const c2 = this.ary.shift()
@@ -68,17 +93,42 @@ export class Colors {
         this.ary.push(c1, c2)
     }
 
-    pop(): color {
-        const c = this.ary.pop()
+    /**
+     *
+     * @param num Updates ary, ensuring that there are always >= 2 elements
+     * If this.ary.length == 2 at the beginning of the method, then both elements
+     * will be the same at the end - the selected color
+     * @return the colors in the format `[selected, rejected]`
+     */
+    selectColor(num: 1 | 2): [color, color] {
+        const selectedColor = num === 1 ? this.color1 : this.color2
+        const rejectedColor = num === 1 ? this.color2 : this.color1
 
-        if (c === undefined) {
-            throw new Error('Color is undefined!')
+        this.selectedColors.push(selectedColor)
+
+        // if there were more than two colors left before making a selection
+        if (this.ary.length > 2) {
+            this.pop2()
+        } else {
+            // else, those were the last two colors and we need to reset
+            if (this.ary.length !== 2) {
+                throw new Error('Array is the incorrect length')
+            }
+
+            const favoriteColorFound = this.selectedColors.length === 1
+
+            if (favoriteColorFound) {
+                this.selectedColors.push(this.selectedColors[0]!)
+            }
+
+            this.reset(shuffle(this.selectedColors))
+            this.selectedColors = []
         }
 
-        return c
+        return [selectedColor, rejectedColor]
     }
 
-    reset(newAry: color[]): void {
+    private reset(newAry: color[]): void {
         assertColorsAry(newAry)
         this.ary = newAry
     }
@@ -88,8 +138,13 @@ export class Colors {
         return Colors.bgKey
     }
 
+    private pop2(): void {
+        this.ary.splice(this.ary.length - 2, 2)
+    }
+
     private init() {
         this.ary = new Array() as colorsAry
+        this.selectedColors = []
         this.first1000()
         this.background()
     }

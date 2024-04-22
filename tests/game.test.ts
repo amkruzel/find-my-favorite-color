@@ -205,10 +205,12 @@ function testCheckForNewIteration() {
     _assertTrue(!g.favoriteColor)
 
     const c1 = g.color1
+    const c2 = g.color2
+    console.log(c1, c2)
 
     g.selectColor(2)
     _assertTrue(g.favoriteColor || g.favoriteColor === 0)
-    _assertTrue(g.favoriteColor === c1)
+    _assertTrue(g.favoriteColor === c2)
     console.log('testCheckForNewIteration PASS')
 }
 

@@ -59,11 +59,6 @@ export class Game {
     private _colorsRemainingCurrentIteration: number
     _colors: Colors
 
-    // TODO
-    // this should/could be implemented as a Uint32Array, representing a list of colors
-    // for the next iteration
-    private _nextIterationColors: color[]
-
     private _bgJobInstant: number = 0
 
     constructor(
@@ -109,7 +104,7 @@ export class Game {
     }
 
     get testingProps(): [color[], color[]] {
-        return [this._colors.raw, this._nextIterationColors]
+        return [this._colors.raw, this._colors.nextIter]
     }
 
     get next1000Colors(): Uint32Array {
@@ -126,7 +121,7 @@ export class Game {
     }
 
     selectColor(num: 1 | 2) {
-        this._updateSelectedColors(num)
+        this._select(num)
         this._colorsRemainingCurrentIteration -= 2
         this._checkForNewIteration()
         this._checkForFavoriteColor()
@@ -154,7 +149,6 @@ export class Game {
         this._currentIteration = 1
         this._colorsRemainingCurrentIteration = MAX_COLORS
         this._favoriteColorFound = false
-        this._nextIterationColors = []
 
         this._buildColors()
     }
@@ -201,8 +195,8 @@ export class Game {
             //colors.push(...this._colors)
             //this._colors = colors
 
-            nextIterationColors.push(...this._nextIterationColors)
-            this._nextIterationColors = nextIterationColors
+            //nextIterationColors.push(...this._nextIterationColors)
+            //this._nextIterationColors = nextIterationColors
         })
     }
 
@@ -215,31 +209,10 @@ export class Game {
         this._colors = new Colors()
     }
 
-    private _updateSelectedColors(num: 1 | 2): void {
-        const _do = (action: 'select' | 'eliminate', color: color): void => {
-            const array =
-                action === 'select'
-                    ? this.selectedColors
-                    : this.eliminatedColors
-
-            const c = this._colors.pop()
-
-            if (action === 'select') {
-                this._nextIterationColors.push(c)
-            }
-
-            array.add(color)
-        }
-
-        const selectAndEliminateColors = (select: color, elim: color): void => {
-            _do('select', select)
-            _do('eliminate', elim)
-        }
-
-        const selectedColor = num === 1 ? this.color1 : this.color2
-        const rejectedColor = num === 1 ? this.color2 : this.color1
-
-        selectAndEliminateColors(selectedColor, rejectedColor)
+    private _select(num: 1 | 2): void {
+        const [selected, rejected] = this._colors.selectColor(num)
+        this.selectedColors.add(selected)
+        this.eliminatedColors.add(rejected)
     }
 
     private _checkForNewIteration() {
@@ -251,18 +224,6 @@ export class Game {
             MAX_COLORS / 2 ** this.currentIteration
         this._currentIteration++
         this.selectedColors.reset()
-
-        const numColorsRemaining = this._nextIterationColors.length
-
-        if (numColorsRemaining < 1) {
-            throw new Error('Array is empty but should not be')
-        } else if (numColorsRemaining === 1) {
-            this._nextIterationColors.push(this._nextIterationColors[0]!)
-        }
-
-        const ary = shuffle(this._nextIterationColors)
-        this._colors.reset(ary)
-        this._nextIterationColors = []
     }
 
     private _checkForFavoriteColor() {
