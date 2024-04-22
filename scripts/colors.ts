@@ -160,10 +160,24 @@ export class Colors {
         this.ary = tmp
 
         // background
+        this.loadBg()
         
     }
 
     private loadBg() {
+        console.log('_buildColorsBg')
+        const worker = new Worker('workers/loadColors.js')
+        worker.postMessage([this.ary, this.reloadBgKey])
+        worker.addEventListener('message', msg => {
+            const [colors, oldKey] = msg.data
+            if (oldKey !== Colors.bgKey) {
+                return
+            }
+            console.log(colors)
+
+            assertColorsAry(colors)
+            this.ary.splice(0, 0, ...colors)
+        })
     }
 
     private init() {
