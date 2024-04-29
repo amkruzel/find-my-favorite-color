@@ -44,21 +44,3 @@ function buildArrayIncrementally(colors: number[], key: number): void {
         self.postMessage([subset, key])
     }
 }
-
-function buildShuffledArray(colors: number[]): number[] {
-    if (colors?.length <= 0) {
-        return []
-    }
-
-    const newColors: number[] = []
-    for (let color = 0; color < MAX_COLORS; color++) {
-        if (color % 100000 == 0) {
-            console.log(color)
-        }
-        if (colors.includes(color)) {
-            continue
-        }
-        newColors.push(color)
-    }
-    return shuffle(newColors)
-}

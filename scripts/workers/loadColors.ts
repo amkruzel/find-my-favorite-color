@@ -1,4 +1,6 @@
-import { shuffle } from 'scripts/game'
+import { assertColor, assertColorsAry } from 'scripts/colors'
+import { CondensedColors } from 'scripts/condensedColors'
+import { colorsAry, shuffle, color } from 'scripts/game'
 
 const MAX_COLORS = 0x1000000
 
@@ -8,51 +10,77 @@ const MAX_COLORS = 0x1000000
  */
 self.onmessage = message => {
     console.log('starting from worker thread')
+    console.log(message.data)
 
-    const [arrays, key] = message.data
+    const [colors, arrays, key] = message.data
 
-    doWork(arrays)
+    const eliminated = new CondensedColors(arrays.eliminated)
+    const selected = new CondensedColors(arrays.selected)
+
+    const [colorsToAdd, nextIterColors] = doWork(colors, {
+        eliminated,
+        selected,
+    })
+
+    assertColorsAry(colorsToAdd)
+    sendIncrementally(colorsToAdd, nextIterColors, key)
 
     console.log('completed from worker thread - now returning')
-
-    self.postMessage(newColors)
 }
 
-function doWork(arrays: {
-    colors: Uint32Array
-    eliminatedColors: Uint32Array
-    selectedColors: Uint32Array
-}): void {
+function doWork(
+    colors: colorsAry,
+    arrays: {
+        eliminated: CondensedColors
+        selected: CondensedColors
+    }
+): [color[], color[]] {
     // go through all numbers
     // - if a number is included in colors, skip it
     // - if a number is included in eliminatedColors, skip it
     // - if a color is included in selectedColors, add it to nextIterColors
+    const newColors = []
+    const nextIterColors = []
 
     for (let color = 0; color < MAX_COLORS; color++) {
-        if (color % 100000 == 0) {
-            console.log(color)
-        }
-        if (arrays.colors.includes(color)) {
+        assertColor(color)
+        const isEliminated = arrays.eliminated.has(color)
+        const isSelected = arrays.selected.has(color)
+        const alreadyIncluded = colors.includes(color)
+
+        if (isSelected) {
+            nextIterColors.push(color)
             continue
         }
+
+        if (isEliminated || alreadyIncluded) {
+            continue
+        }
+
         newColors.push(color)
     }
+
+    return [shuffle(newColors), shuffle(nextIterColors)]
 }
 
-function buildShuffledArray(colors: number[]): number[] {
-    if (colors?.length <= 0) {
-        return []
-    }
+function sendIncrementally(
+    colors: color[],
+    nextIterColors: color[],
+    key: number
+): void {
+    const HUNDRED_THOU = 100000
+    for (let i = 0; i < 170; i++) {
+        const min = i * HUNDRED_THOU
+        const max = min + HUNDRED_THOU
 
-    const newColors: number[] = []
-    for (let color = 0; color < MAX_COLORS; color++) {
-        if (color % 100000 == 0) {
-            console.log(color)
+        if (min >= MAX_COLORS) {
+            break
         }
-        if (colors.includes(color)) {
-            continue
-        }
-        newColors.push(color)
+
+        const colorsSubset = colors.slice(min, max)
+        const nextIterSubset = nextIterColors.slice(min, max)
+
+        console.log(`sending elements ${min} through ${max}`)
+        self.postMessage([[colorsSubset, nextIterSubset], key])
     }
-    return shuffle(newColors)
 }

@@ -77,15 +77,6 @@ export function updateLogin(user: string) {
     document.querySelector('.welcome-user')!.textContent = `Welcome ${user}`
 }
 
-function _shouldSaveAuthLocal(form: HTMLFormElement): boolean {
-    const stayLoggedInElement = form.elements.namedItem('stayLoggedIn')
-
-    return (
-        stayLoggedInElement instanceof HTMLInputElement &&
-        stayLoggedInElement.checked
-    )
-}
-
 export function updateGameUi(game: Game) {
     const currenIter = document.querySelector('.current-iteration')
     if (currenIter instanceof HTMLSpanElement) {

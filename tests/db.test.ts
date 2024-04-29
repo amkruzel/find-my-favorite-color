@@ -2,9 +2,11 @@ import { Db } from 'scripts/db'
 import { Game } from 'scripts/game'
 import { App } from 'scripts/app'
 import { getUser, guestUser } from 'scripts/user'
+import { CondensedColors } from 'scripts/condensedColors'
+import { TestGame } from './game.test'
 
 const app: App = {
-    game: new Game(),
+    game: new TestGame(),
     user: guestUser(),
 }
 
@@ -29,19 +31,22 @@ async function testGetGame() {
 }
 
 async function testSaveAndLoad() {
-    const eliminated = app.game.eliminatedColors
-    const selected = app.game.selectedColors
-    const [colors, nextIterationColors] = app.game.testingProps
+    const g = app.game as TestGame
+    const eliminated = g.eliminatedColors
+    const selected = g.selectedColors
+    const [colors, nextIterationColors] = g.testingProps
 
     await db.save(app)
     await db.load(app)
 
     for (let i = 0; i < 0x80000; i++) {
-        assertTrue(eliminated[i] === app.game.eliminatedColors[i])
-        assertTrue(selected[i] === app.game.selectedColors[i])
+        console.log(i, eliminated.raw[0])
+
+        assertTrue(eliminated.raw[i] === g.eliminatedColors.raw[i])
+        assertTrue(selected.raw[i] === g.selectedColors.raw[i])
     }
 
-    const [newColors, newNextIterationColors] = app.game.testingProps
+    const [newColors, newNextIterationColors] = g.testingProps
 
     let i = 0,
         n = 0

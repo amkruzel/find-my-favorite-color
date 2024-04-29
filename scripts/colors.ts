@@ -3,13 +3,13 @@ import { CondensedColors } from './condensedColors'
 
 const MAX_COLORS = 0x1000000
 
-function assertColor(value: number): asserts value is color {
+export function assertColor(value: number): asserts value is color {
     if (parseInt(`${value}`) !== value || value < 0 || value > 0xffffff) {
         throw new Error(value + 'is not a color!')
     }
 }
 
-function assertColorsAry(ary: number[]): asserts ary is colorsAry {
+export function assertColorsAry(ary: number[]): asserts ary is colorsAry {
     if (
         !ary.every(elem => {
             assertColor(elem)
@@ -42,42 +42,50 @@ function shuffle<T>(array: T[]): T[] {
     return array
 }
 
-interface ColorsLoadData {
-    next1000: ArrayBuffer, 
-    eliminated: CondensedColors, 
-    selected: CondensedColors
+export interface ColorsLoadData {
+    next1000: ArrayBuffer
+    eliminated: ArrayBuffer
+    selected: ArrayBuffer
+}
+
+class ColorsAry {
+    static new(): colorsAry {
+        return new Array() as colorsAry
+    }
+
+    static from(ary: ArrayBuffer): colorsAry {
+        const tmp = Array.from(new Uint32Array(ary))
+        assertColorsAry(tmp)
+        return tmp
+    }
+}
+
+function assertDefined(val: color | undefined): asserts val is color {
+    if (val === undefined) {
+        throw new Error('Value is undefined!')
+    }
 }
 
 export class Colors {
-    private selectedColors: color[]
+    protected selectedColors: color[]
     protected ary: colorsAry
     private static bgKey: number
 
-    constructor(data?: ColorsLoadData) {
-        if (data) {
-            this.load(data)
-        } else {
-            this.init()
-        }
+    constructor() {
+        this.init()
     }
 
     get color1(): color {
-        const c = this.ary[this.ary.length - 1]
-
-        if (c === undefined) {
-            throw new Error('Color is undefined!')
-        }
-
-        return c
+        return this.getAndValidateColor(1)
     }
 
     get color2(): color {
-        const c = this.ary[this.ary.length - 2]
+        return this.getAndValidateColor(2)
+    }
 
-        if (c === undefined) {
-            throw new Error('Color is undefined!')
-        }
-
+    private getAndValidateColor(num: 1 | 2): color {
+        const c = this.ary[this.ary.length - num]
+        assertDefined(c)
         return c
     }
 
@@ -85,21 +93,12 @@ export class Colors {
         return new Uint32Array(this.ary.slice(0, 1001))
     }
 
-    get raw(): colorsAry {
-        return this.ary
-    }
-
-    get nextIter(): color[] {
-        return this.selectedColors
-    }
-
     shuffle(): void {
         const c1 = this.ary.shift()
         const c2 = this.ary.shift()
 
-        if (c1 === undefined || c2 === undefined) {
-            throw new Error('Color is undefined!')
-        }
+        assertDefined(c1)
+        assertDefined(c2)
 
         this.ary.push(c1, c2)
     }
@@ -111,24 +110,18 @@ export class Colors {
      * will be the same at the end - the selected color
      * @return the colors in the format `[selected, rejected]`
      */
-    selectColor(num: 1 | 2): [color, color] {
-        const selectedColor = num === 1 ? this.color1 : this.color2
-        const rejectedColor = num === 1 ? this.color2 : this.color1
-
-        this.selectedColors.push(selectedColor)
+    select(num: 1 | 2): [color, color] {
+        const selectedAndRejectedColors = this.getSelectedAndRejected(num)
+        this.selectColor(selectedAndRejectedColors[0])
 
         // if there were more than two colors left before making a selection
         if (this.ary.length > 2) {
             this.pop2()
         } else {
             // else, those were the last two colors and we need to reset
-            if (this.ary.length !== 2) {
-                throw new Error('Array is the incorrect length')
-            }
+            this.validateAry()
 
-            const favoriteColorFound = this.selectedColors.length === 1
-
-            if (favoriteColorFound) {
+            if (this.favoriteColorFound()) {
                 this.selectedColors.push(this.selectedColors[0]!)
             }
 
@@ -136,7 +129,33 @@ export class Colors {
             this.selectedColors = []
         }
 
+        return selectedAndRejectedColors
+    }
+
+    private getSelectedAndRejected(num: 1 | 2): [color, color] {
+        const selectedColor = num === 1 ? this.color1 : this.color2
+        const rejectedColor = num === 1 ? this.color2 : this.color1
         return [selectedColor, rejectedColor]
+    }
+
+    private selectColor(color: color): void {
+        this.selectedColors.push(color)
+    }
+
+    private validateAry(): void {
+        if (this.ary.length !== 2) {
+            throw new Error('Array is the incorrect length')
+        }
+    }
+
+    private favoriteColorFound(): boolean {
+        return this.selectedColors.length === 1
+    }
+
+    static load(data: ColorsLoadData): Colors {
+        const c = new Colors()
+        c.load(data)
+        return c
     }
 
     private reset(newAry: color[]): void {
@@ -155,21 +174,18 @@ export class Colors {
 
     private load(data: ColorsLoadData) {
         // first 1000
-        const tmp = Array.from(new Uint32Array(data.next1000))
-        assertColorsAry(tmp)
-        this.ary = tmp
+        this.ary = ColorsAry.from(data.next1000)
 
         // background
-        this.loadBg(data.eliminated, data.selected)
-        
+        this.loadBg({ eliminated: data.eliminated, selected: data.selected })
     }
 
-    private loadBg(eliminated: CondensedColors, selected: CondensedColors) {
+    private loadBg(data: { eliminated: ArrayBuffer; selected: ArrayBuffer }) {
         console.log('_buildColorsBg')
         const worker = new Worker('workers/loadColors.js')
-        worker.postMessage([this.ary, this.reloadBgKey])
+        worker.postMessage([this.ary, data, this.reloadBgKey])
         worker.addEventListener('message', msg => {
-            const [colors, oldKey] = msg.data
+            const [[colors, selectedColors], oldKey] = msg.data
             if (oldKey !== Colors.bgKey) {
                 return
             }
@@ -177,17 +193,21 @@ export class Colors {
 
             assertColorsAry(colors)
             this.ary.splice(0, 0, ...colors)
+
+            if (selectedColors.length !== 0) {
+                this.selectedColors.splice(0, 0, ...selectedColors)
+            }
         })
     }
 
     private init() {
-        this.ary = new Array() as colorsAry
-        this.selectedColors = []
+        this.ary = ColorsAry.new()
+        this.selectedColors = Array()
         this.first1000()
         this.background()
     }
 
-    private first1000() {
+    private first1000(): void {
         for (let i = 0; i < 1000; i++) {
             let color: number
 
@@ -199,11 +219,10 @@ export class Colors {
 
             this.ary.push(color)
         }
-
         assertColorsAry(this.ary)
     }
 
-    protected background() {
+    protected background(): void {
         console.log('_buildColorsBg')
         const worker = new Worker('workers/initColors.js')
         worker.postMessage([this.ary, this.reloadBgKey])

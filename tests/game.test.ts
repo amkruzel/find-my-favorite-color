@@ -1,71 +1,30 @@
-import { Game, color, colorsAry } from 'scripts/game'
-import { Colors } from 'scripts/colors'
+import { Game, color } from 'scripts/game'
 
 //import * as fs from 'fs'
 import * as fsPromises from 'fs/promises'
+import { TestColors } from './colors.test'
+import { TestCondensedColors } from './condensedColors.test'
 
 const MAX_COLORS = 0x1000000
 
-class TestColors extends Colors {
+export class TestGame extends Game {
+    _colors: TestColors
+    selectedColors: TestCondensedColors
+    eliminatedColors: TestCondensedColors
+
     constructor() {
         super()
     }
 
-    protected background() {
-        const tmpClr = this.ary
-        let newColors: number[] = []
-        for (let i = 0; i < MAX_COLORS; i++) {
-            if (tmpClr.includes(i as color)) {
-                continue
-            }
-            newColors.push(i)
-        }
-
-        newColors = shuffle(newColors)
-
-        const HUNDRED_THOU = 100000
-        for (let i = 0; i < 170; i++) {
-            const min = i * HUNDRED_THOU
-            const max = min + HUNDRED_THOU
-
-            if (min >= MAX_COLORS) {
-                break
-            }
-
-            const subset = newColors.slice(min, max)
-
-            this.ary.splice(0, 0, ...(subset as colorsAry))
-        }
-    }
-}
-
-class TestGame extends Game {
-    constructor() {
-        super()
+    get testingProps(): [color[], color[]] {
+        return [this._colors.raw, this._colors.nextIter]
     }
 
     protected _buildColors() {
         this._colors = new TestColors()
+        this.selectedColors = new TestCondensedColors()
+        this.eliminatedColors = new TestCondensedColors()
     }
-}
-
-function shuffle<T>(array: T[]): T[] {
-    let currentIndex = array.length
-
-    // While there remain elements to shuffle...
-    while (currentIndex != 0) {
-        // Pick a remaining element...
-        let randomIndex = Math.floor(Math.random() * currentIndex)
-        currentIndex--
-
-        // And swap it with the current element.
-        ;[array[currentIndex], array[randomIndex]] = [
-            array[randomIndex],
-            array[currentIndex],
-        ] as [T, T]
-    }
-
-    return array
 }
 
 function assertTrue(val: any): asserts val is true {

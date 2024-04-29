@@ -21,7 +21,7 @@ function assertBit(value: number): asserts value is bit {
  * such as checking if a color is eliminated or not
  */
 export class CondensedColors {
-    private ary: Uint32Array
+    protected ary: Uint32Array
 
     constructor(vals?: ArrayBuffer) {
         this.init(vals)
@@ -29,10 +29,6 @@ export class CondensedColors {
 
     get blob(): Blob {
         return new Blob([this.ary])
-    }
-
-    get raw(): Uint32Array {
-        return this.ary
     }
 
     has(val: color): boolean {

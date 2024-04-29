@@ -118,66 +118,10 @@
   }
 
   // scripts/ui.ts
-  var addEventListeners = (app2, db2) => {
-    document.querySelector(".login").addEventListener("submit", async (e) => {
-      const form = e.target;
-      if (!(form instanceof HTMLFormElement)) {
-        notify(
-          "error" /* error */,
-          "Something went wrong - please refresh the page and try again."
-        );
-        return;
-      }
-      const user = await signupOrLogin(form, e.submitter?.dataset.action);
-      if (user instanceof Error) {
-        notify("error" /* error */, user.message);
-        return;
-      }
-      app2.user = user;
-      if (_shouldSaveAuthLocal(form)) {
-        saveAuthLocal(user.id, user.email);
-      } else {
-        clearAuthLocal();
-      }
-      form.reset();
-      updateLogin(user.email);
-    });
-    document.querySelector("#logout-btn").addEventListener("click", (e) => {
-      logout(e);
-      app2.user = guestUser();
-    });
-    document.querySelector(".new-colors").addEventListener("click", async () => {
-      app2.game.shuffleColors();
-      db2.save(app2);
-      updateGameUi(app2.game);
-    });
-    document.querySelector(".clear-data").addEventListener("click", async () => {
-      app2.game.reset();
-      db2.save(app2);
-      updateGameUi(app2.game);
-    });
-    document.querySelector("#color1").addEventListener("click", async () => {
-      app2.game.selectColor(1);
-      db2.save(app2);
-      updateGameUi(app2.game);
-    });
-    document.querySelector("#color2").addEventListener("click", async () => {
-      app2.game.selectColor(2);
-      db2.save(app2);
-      updateGameUi(app2.game);
-    });
-    document.querySelector(".debug").addEventListener("click", () => {
-      console.log(app2);
-    });
-  };
   function updateLogin(user) {
     document.querySelector(".login").classList.add("hidden");
     document.querySelector("#logout-btn").classList.remove("hidden");
     document.querySelector(".welcome-user").textContent = `Welcome ${user}`;
-  }
-  function _shouldSaveAuthLocal(form) {
-    const stayLoggedInElement = form.elements.namedItem("stayLoggedIn");
-    return stayLoggedInElement instanceof HTMLInputElement && stayLoggedInElement.checked;
   }
   function updateGameUi(game) {
     const currenIter = document.querySelector(".current-iteration");
@@ -206,21 +150,63 @@
     return num.toString(16).padStart(6, "0");
   }
 
-  // scripts/game.ts
-  var MAX_COLORS = 16777216;
-  function assertColor(value) {
-    if (parseInt(`${value}`) !== value || value < 0 || value > 16777215) {
-      throw new Error(value + "is not a color!");
-    }
-  }
+  // scripts/condensedColors.ts
   function assertIndex(value) {
-    if (parseInt(`${value}`) !== value || value < 0 || value > 524288) {
+    if (parseInt(`${value}`) !== value || value < 0 || value >= 524288) {
       throw new Error("Not an index!");
     }
   }
   function assertBit(value) {
     if (parseInt(`${value}`) !== value || value < 0 || value & value - 1) {
       throw new Error("Not a bit!");
+    }
+  }
+  var CondensedColors = class {
+    constructor(vals) {
+      this.init(vals);
+    }
+    get blob() {
+      return new Blob([this.ary]);
+    }
+    has(val) {
+      const [index, bit] = this.split(val);
+      const num = this.get(index);
+      return !!(num & bit);
+    }
+    add(val) {
+      const [index, bit] = this.split(val);
+      this.ary[index] |= bit;
+    }
+    reset() {
+      this.init();
+    }
+    split(val) {
+      const [index, bit] = [val >> 5, 2 ** (val & 31)];
+      assertIndex(index);
+      assertBit(bit);
+      return [index, bit];
+    }
+    get(val) {
+      const num = this.ary[val];
+      if (num === void 0) {
+        throw new Error("Value is undefined but should not be");
+      }
+      return num;
+    }
+    init(vals) {
+      if (vals) {
+        this.ary = new Uint32Array(vals);
+      } else {
+        this.ary = new Uint32Array(524288);
+      }
+    }
+  };
+
+  // scripts/colors.ts
+  var MAX_COLORS = 16777216;
+  function assertColor(value) {
+    if (parseInt(`${value}`) !== value || value < 0 || value > 16777215) {
+      throw new Error(value + "is not a color!");
     }
   }
   function assertColorsAry(ary) {
@@ -244,6 +230,156 @@
     }
     return array;
   }
+  var ColorsAry = class {
+    static new() {
+      return new Array();
+    }
+    static from(ary) {
+      const tmp = Array.from(new Uint32Array(ary));
+      assertColorsAry(tmp);
+      return tmp;
+    }
+  };
+  function assertDefined(val) {
+    if (val === void 0) {
+      throw new Error("Value is undefined!");
+    }
+  }
+  var Colors = class _Colors {
+    constructor() {
+      this.init();
+    }
+    get color1() {
+      return this.getAndValidateColor(1);
+    }
+    get color2() {
+      return this.getAndValidateColor(2);
+    }
+    getAndValidateColor(num) {
+      const c = this.ary[this.ary.length - num];
+      assertDefined(c);
+      return c;
+    }
+    get next1000Colors() {
+      return new Uint32Array(this.ary.slice(0, 1001));
+    }
+    shuffle() {
+      const c1 = this.ary.shift();
+      const c2 = this.ary.shift();
+      assertDefined(c1);
+      assertDefined(c2);
+      this.ary.push(c1, c2);
+    }
+    /**
+     *
+     * @param num Updates ary, ensuring that there are always >= 2 elements
+     * If this.ary.length == 2 at the beginning of the method, then both elements
+     * will be the same at the end - the selected color
+     * @return the colors in the format `[selected, rejected]`
+     */
+    select(num) {
+      const selectedAndRejectedColors = this.getSelectedAndRejected(num);
+      this.selectColor(selectedAndRejectedColors[0]);
+      if (this.ary.length > 2) {
+        this.pop2();
+      } else {
+        this.validateAry();
+        if (this.favoriteColorFound()) {
+          this.selectedColors.push(this.selectedColors[0]);
+        }
+        this.reset(shuffle(this.selectedColors));
+        this.selectedColors = [];
+      }
+      return selectedAndRejectedColors;
+    }
+    getSelectedAndRejected(num) {
+      const selectedColor = num === 1 ? this.color1 : this.color2;
+      const rejectedColor = num === 1 ? this.color2 : this.color1;
+      return [selectedColor, rejectedColor];
+    }
+    selectColor(color) {
+      this.selectedColors.push(color);
+    }
+    validateAry() {
+      if (this.ary.length !== 2) {
+        throw new Error("Array is the incorrect length");
+      }
+    }
+    favoriteColorFound() {
+      return this.selectedColors.length === 1;
+    }
+    static load(data) {
+      const c = new _Colors();
+      c.load(data);
+      return c;
+    }
+    reset(newAry) {
+      assertColorsAry(newAry);
+      this.ary = newAry;
+    }
+    get reloadBgKey() {
+      _Colors.bgKey = Date.now();
+      return _Colors.bgKey;
+    }
+    pop2() {
+      this.ary.splice(this.ary.length - 2, 2);
+    }
+    load(data) {
+      this.ary = ColorsAry.from(data.next1000);
+      this.loadBg({ eliminated: data.eliminated, selected: data.selected });
+    }
+    loadBg(data) {
+      console.log("_buildColorsBg");
+      const worker = new Worker("workers/loadColors.js");
+      worker.postMessage([this.ary, data, this.reloadBgKey]);
+      worker.addEventListener("message", (msg) => {
+        const [[colors, selectedColors], oldKey] = msg.data;
+        if (oldKey !== _Colors.bgKey) {
+          return;
+        }
+        console.log(colors);
+        assertColorsAry(colors);
+        this.ary.splice(0, 0, ...colors);
+        if (selectedColors.length !== 0) {
+          this.selectedColors.splice(0, 0, ...selectedColors);
+        }
+      });
+    }
+    init() {
+      this.ary = ColorsAry.new();
+      this.selectedColors = Array();
+      this.first1000();
+      this.background();
+    }
+    first1000() {
+      for (let i = 0; i < 1e3; i++) {
+        let color;
+        do {
+          color = ~~(Math.random() * MAX_COLORS);
+          assertColor(color);
+        } while (this.ary.includes(color));
+        this.ary.push(color);
+      }
+      assertColorsAry(this.ary);
+    }
+    background() {
+      console.log("_buildColorsBg");
+      const worker = new Worker("workers/initColors.js");
+      worker.postMessage([this.ary, this.reloadBgKey]);
+      worker.addEventListener("message", (msg) => {
+        const [colors, oldKey] = msg.data;
+        if (oldKey !== _Colors.bgKey) {
+          return;
+        }
+        console.log(colors);
+        assertColorsAry(colors);
+        this.ary.splice(0, 0, ...colors);
+      });
+    }
+  };
+
+  // scripts/game.ts
+  var MAX_COLORS2 = 16777216;
   var Game = class {
     constructor(eliminated, selected, colors, props) {
       this._bgJobInstant = 0;
@@ -254,10 +390,10 @@
       }
     }
     get color1() {
-      return this._colors[this._colors.length - 1];
+      return this._colors.color1;
     }
     get color2() {
-      return this._colors[this._colors.length - 2];
+      return this._colors.color2;
     }
     get currentIteration() {
       return this._currentIteration;
@@ -275,18 +411,18 @@
         colorsRemainingCurrentIteration: this.colorsRemainingCurrentIteration
       };
     }
-    get testingProps() {
-      return [this._colors, this._nextIterationColors];
-    }
     get next1000Colors() {
-      return new Uint32Array(this._colors.slice(0, 1001));
+      return this._colors.next1000Colors;
     }
-    get _bgKey() {
+    get _reloadBgKey() {
       this._bgJobInstant = Date.now();
+      return this._getBgKey;
+    }
+    get _getBgKey() {
       return this._bgJobInstant;
     }
     selectColor(num) {
-      this._updateSelectedColors(num);
+      this._select(num);
       this._colorsRemainingCurrentIteration -= 2;
       this._checkForNewIteration();
       this._checkForFavoriteColor();
@@ -295,147 +431,65 @@
       this._init();
     }
     shuffleColors() {
-      this._colors.push(this._colors.shift());
-      this._colors.push(this._colors.shift());
+      this._colors.shuffle();
     }
     isEliminated(color) {
-      return this._is(color, "eliminated");
+      return this.eliminatedColors.has(color);
     }
     isSelected(color) {
-      return this._is(color, "selected");
+      return this.selectedColors.has(color);
     }
     _init() {
-      this.eliminatedColors = new Uint32Array(524288);
-      this.selectedColors = new Uint32Array(524288);
+      this.eliminatedColors = new CondensedColors();
+      this.selectedColors = new CondensedColors();
       this._currentIteration = 1;
-      this._colorsRemainingCurrentIteration = MAX_COLORS;
+      this._colorsRemainingCurrentIteration = MAX_COLORS2;
       this._favoriteColorFound = false;
-      this._nextIterationColors = [];
       this._buildColors();
     }
     _load(eliminated, selected, colors, props) {
-      this.eliminatedColors = new Uint32Array(eliminated);
-      this.selectedColors = new Uint32Array(selected);
+      this.eliminatedColors = new CondensedColors(eliminated);
+      this.selectedColors = new CondensedColors(selected);
       this._currentIteration = props.currentIteration;
       this._colorsRemainingCurrentIteration = props.colorsRemainingCurrentIteration;
       this._favoriteColorFound = props.favoriteColorFound;
-      const tempColors = Array.from(new Uint32Array(colors));
-      assertColorsAry(tempColors);
-      this._colors = tempColors;
-      this._loadColors();
-    }
-    _loadColors() {
-      console.log("_loadColorsBg");
-      const worker = new Worker("workers/loadColors.js");
       const data = {
-        colors: this._colors,
-        eliminatedColors: this.eliminatedColors,
-        selectedColors: this.selectedColors
+        next1000: colors,
+        eliminated,
+        selected
       };
-      worker.postMessage(data);
-      worker.addEventListener("message", (msg) => {
-        const [colors, nextIterationColors] = msg.data;
-        assertColorsAry(colors);
-        assertColorsAry(nextIterationColors);
-        colors.push(...this._colors);
-        this._colors = colors;
-        nextIterationColors.push(...this._nextIterationColors);
-        this._nextIterationColors = nextIterationColors;
-      });
+      this._loadColors(data);
     }
-    _buildColors() {
-      this._colors = new Array();
-      this._get1000Colors();
-      this._buildColorsBackground();
+    _loadColors(data) {
+      this._colors = Colors.load(data);
     }
     /**
-     * This method does not validate that the colors have not been eliminated or selected
+     * The primary purpose of this method is to allow for easier testing.
+     * This method is overridded in the test class so that a worker thread is
+     * not used.
      */
-    _get1000Colors() {
-      for (let i = 0; i < 1e3; i++) {
-        let color = ~~(Math.random() * MAX_COLORS);
-        assertColor(color);
-        this._colors.push(color);
-      }
+    _buildColors() {
+      this._colors = new Colors();
     }
-    _buildColorsBackground() {
-      console.log("_buildColorsBg");
-      const worker = new Worker("workers/initColors.js");
-      const key = this._bgKey;
-      worker.postMessage([this._colors, key]);
-      worker.addEventListener("message", (msg) => {
-        const [colors, oldKey] = msg.data;
-        if (oldKey !== key) {
-          return;
-        }
-        console.log(colors);
-        assertColorsAry(colors);
-        this._colors.splice(0, 0, ...colors);
-      });
-    }
-    _updateSelectedColors(num) {
-      const _do = (action, color) => {
-        const [index, bit] = this._split(color);
-        const array = action === "select" ? "selectedColors" : "eliminatedColors";
-        assertColor(color);
-        if (action === "select") {
-          this._nextIterationColors.push(this._colors.pop());
-        } else {
-          this._colors.pop();
-        }
-        this[array][index] |= bit;
-      };
-      const selectAndEliminateColors = (select, elim) => {
-        _do("select", select);
-        _do("eliminate", elim);
-      };
-      const selectedColor = num === 1 ? this.color1 : this.color2;
-      const rejectedColor = num === 1 ? this.color2 : this.color1;
-      selectAndEliminateColors(selectedColor, rejectedColor);
-    }
-    _split(color) {
-      const [index, bit] = [color >> 5, 2 ** (color & 31)];
-      assertIndex(index);
-      assertBit(bit);
-      return [index, bit];
+    _select(num) {
+      const [selected, rejected] = this._colors.select(num);
+      this.selectedColors.add(selected);
+      this.eliminatedColors.add(rejected);
     }
     _checkForNewIteration() {
       if (this.colorsRemainingCurrentIteration !== 0) {
         return;
       }
-      this._colorsRemainingCurrentIteration = MAX_COLORS / 2 ** this.currentIteration;
+      this._colorsRemainingCurrentIteration = MAX_COLORS2 / 2 ** this.currentIteration;
       this._currentIteration++;
-      this.selectedColors = new Uint32Array(524288);
-      const numColorsRemaining = this._nextIterationColors.length;
-      if (numColorsRemaining < 1) {
-        throw new Error("Array is empty but should not be");
-      } else if (numColorsRemaining === 1) {
-        this._nextIterationColors.push(this._nextIterationColors[0]);
-      }
-      const ary = shuffle(this._nextIterationColors);
-      assertColorsAry(ary);
-      this._colors = ary;
-      this._nextIterationColors = [];
+      this.selectedColors.reset();
     }
     _checkForFavoriteColor() {
       this._favoriteColorFound = this.colorsRemainingCurrentIteration === 1;
     }
-    _is(color, testingFor) {
-      const [index, bit] = this._split(color);
-      const num = testingFor === "eliminated" ? this.eliminatedColors[index] : this.selectedColors[index];
-      if (num === void 0) {
-        return false;
-      }
-      return !!(num & bit);
-    }
   };
 
   // scripts/db.ts
-  function assertUser(app2) {
-    if (!app2.user) {
-      return;
-    }
-  }
   var Db = class {
     constructor(protocol, ip, port) {
       this._path = `${protocol}://${ip}:${port}`;
@@ -449,26 +503,25 @@
       const response = await this._fetchUsers("records", data);
       return await this._parseResponse(response);
     }
-    async save(app2) {
-      if (app2.user.id === "guest") {
+    async save(app) {
+      if (app.user.id === "guest") {
         return false;
       }
       if (this._pendingSave) {
         return false;
       }
       this._pendingSave = true;
-      assertUser(app2);
-      const game = await this._getGameIfOneExists(app2.user.id);
+      const game = await this._getGameIfOneExists(app.user.id);
       console.log(game);
-      const rv = await this._createOrUpdate(app2, game?.id);
+      const rv = await this._createOrUpdate(app, game?.id);
       this._pendingSave = false;
       return rv;
     }
-    async load(app2) {
-      if (app2.user.id === "guest") {
+    async load(app) {
+      if (app.user.id === "guest") {
         return;
       }
-      const game = await this._getGameIfOneExists(app2.user.id);
+      const game = await this._getGameIfOneExists(app.user.id);
       if (!game) {
         return;
       }
@@ -478,7 +531,7 @@
       if (!eliminatedColors || !selectedColors || !colors) {
         return;
       }
-      app2.game = new Game(
+      app.game = new Game(
         eliminatedColors,
         selectedColors,
         colors,
@@ -492,8 +545,8 @@
         users: this._path + "/api/collections/users"
       };
     }
-    async _createOrUpdate(app2, gameId) {
-      const form = this._buildForm(app2);
+    async _createOrUpdate(app, gameId) {
+      const form = this._buildForm(app);
       let response;
       if (gameId) {
         response = await this._patch(form, gameId);
@@ -502,16 +555,16 @@
       }
       return true;
     }
-    _buildForm(app2) {
-      const elimColorBlob = new Blob([app2.game.eliminatedColors]);
-      const selectColorBlob = new Blob([app2.game.selectedColors]);
-      const colorsBlob = new Blob([app2.game.next1000Colors]);
+    _buildForm(app) {
+      const elimColorBlob = app.game.eliminatedColors.blob;
+      const selectColorBlob = app.game.selectedColors.blob;
+      const colorsBlob = new Blob([app.game.next1000Colors]);
       const form = new FormData();
       form.set("eliminatedColors", elimColorBlob);
       form.set("selectedColors", selectColorBlob);
       form.set("colors", colorsBlob);
-      form.set("properties", JSON.stringify(app2.game.properties));
-      form.set("user", app2.user.id);
+      form.set("properties", JSON.stringify(app.game.properties));
+      form.set("user", app.user.id);
       return form;
     }
     async _post(form) {
@@ -585,20 +638,126 @@
   };
 
   // scripts/app.ts
-  var app = {
-    game: new Game(),
-    user: guestUser()
-  };
-  var db = new Db("http", "34.42.14.226", "8090");
-  addEventListeners(app, db);
-  tryLocalLogin().then((response) => {
-    if (response instanceof Error || !response) {
-      updateGameUi(app.game);
-      return;
+  function assertType(elem, cls) {
+    if (!(elem instanceof cls)) {
+      notify(
+        "error" /* error */,
+        "Something went wrong - please refresh the page and try again."
+      );
+      throw new TypeError("Element is not an instance of " + cls);
     }
-    app.user = response;
-    db.load(app).then(() => updateGameUi(app.game));
-    updateLogin(response.email);
-  });
+  }
+  function getAndAssertType(selector, cls) {
+    const elem = document.querySelector(selector);
+    assertType(elem, cls);
+    return elem;
+  }
+  function getButton(selector) {
+    return getAndAssertType(selector, HTMLButtonElement);
+  }
+  var App = class _App {
+    static {
+      this.isInternal = false;
+    }
+    constructor() {
+      if (!_App.isInternal) {
+        throw new TypeError("App is not constructable.");
+      }
+      this._user = guestUser();
+      this._game = new Game();
+      this.db = new Db("http", "34.42.14.226", "8090");
+      _App.isInternal = false;
+    }
+    static start() {
+      _App.isInternal = true;
+      const app = new _App();
+      app.addEventListeners();
+      tryLocalLogin().then((response) => {
+        if (response instanceof Error || !response) {
+          updateGameUi(app.game);
+          return;
+        }
+        app._user = response;
+        app.db.load(app).then(() => updateGameUi(app.game));
+        updateLogin(response.email);
+      });
+    }
+    get user() {
+      return this._user;
+    }
+    get game() {
+      return this._game;
+    }
+    set game(game) {
+      this._game = game;
+    }
+    addEventListeners() {
+      this.addAuthEventListeners();
+      this.addGameEventListeners();
+    }
+    addAuthEventListeners() {
+      this.addLoginEventListener();
+      this.addLogoutEventListener();
+    }
+    addLoginEventListener() {
+      function _shouldSaveAuthLocal2(form) {
+        const stayLoggedInElement = form.elements.namedItem("stayLoggedIn");
+        return stayLoggedInElement instanceof HTMLInputElement && stayLoggedInElement.checked;
+      }
+      getAndAssertType(".login", HTMLFormElement).onsubmit = async (e) => {
+        const form = e.target;
+        assertType(form, HTMLFormElement);
+        const user = await signupOrLogin(form, e.submitter?.dataset.action);
+        if (user instanceof Error) {
+          notify("error" /* error */, user.message);
+          return;
+        }
+        this._user = user;
+        if (_shouldSaveAuthLocal2(form)) {
+          saveAuthLocal(user.id, user.email);
+        } else {
+          clearAuthLocal();
+        }
+        form.reset();
+        updateLogin(user.email);
+      };
+    }
+    addLogoutEventListener() {
+      getAndAssertType("#logout-btn", HTMLInputElement).onclick = (e) => {
+        logout(e);
+        this._user = guestUser();
+      };
+    }
+    addGameEventListeners() {
+      this.addShuffleEventListener();
+      this.addClearEventListener();
+      this.addColorEventListener();
+    }
+    addShuffleEventListener() {
+      getButton(".new-colors").onclick = async () => {
+        this.game.shuffleColors();
+        this.saveGameAndUpdate();
+      };
+    }
+    addClearEventListener() {
+      getButton(".clear-data").onclick = async () => {
+        this.game.reset();
+        this.saveGameAndUpdate();
+      };
+    }
+    addColorEventListener() {
+      const clickColor = async (num) => {
+        this.game.selectColor(num);
+        this.saveGameAndUpdate();
+      };
+      getAndAssertType("#color1", HTMLDivElement).onclick = async () => await clickColor(1);
+      getAndAssertType("#color2", HTMLDivElement).onclick = async () => await clickColor(2);
+    }
+    saveGameAndUpdate() {
+      this.db.save(this);
+      updateGameUi(this.game);
+    }
+  };
+  App.start();
 })();
 //# sourceMappingURL=app.js.map

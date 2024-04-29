@@ -1,7 +1,7 @@
 import { CondensedColors } from './condensedColors'
-import { Colors } from './colors'
+import { Colors, ColorsLoadData } from './colors'
 
-const MAX_COLORS = 0x1000000
+export const MAX_COLORS = 0x1000000
 
 export type color = number & { __type: color }
 export type colorsAry = [color, color, ...color[]]
@@ -10,25 +10,6 @@ export interface GameProps {
     favoriteColorFound: boolean
     currentIteration: number
     colorsRemainingCurrentIteration: number
-}
-
-function assertColor(value: number): asserts value is color {
-    if (parseInt(`${value}`) !== value || value < 0 || value > 0xffffff) {
-        throw new Error(value + 'is not a color!')
-    }
-}
-
-function assertColorsAry(ary: number[]): asserts ary is colorsAry {
-    if (
-        !ary.every(elem => {
-            assertColor(elem)
-            return true
-        }) ||
-        ary.length < 2
-    ) {
-        console.log(ary)
-        throw new Error('Not a colorsAry!')
-    }
 }
 
 // https://stackoverflow.com/questions/2450954/how-to-randomize-shuffle-a-javascript-array
@@ -103,10 +84,6 @@ export class Game {
         }
     }
 
-    get testingProps(): [color[], color[]] {
-        return [this._colors.raw, this._colors.nextIter]
-    }
-
     get next1000Colors(): Uint32Array {
         return this._colors.next1000Colors
     }
@@ -143,7 +120,7 @@ export class Game {
         return this.selectedColors.has(color)
     }
 
-    private _init() {
+    protected _init() {
         this.eliminatedColors = new CondensedColors()
         this.selectedColors = new CondensedColors()
         this._currentIteration = 1
@@ -166,38 +143,17 @@ export class Game {
             props.colorsRemainingCurrentIteration
         this._favoriteColorFound = props.favoriteColorFound
 
-        const tempColors = Array.from(new Uint32Array(colors))
-        assertColorsAry(tempColors)
-        //this._colors = tempColors
+        const data: ColorsLoadData = {
+            next1000: colors,
+            eliminated,
+            selected,
+        }
 
-        this._loadColors()
+        this._loadColors(data)
     }
 
-    private _loadColors() {
-        console.log('_loadColorsBg')
-        const worker = new Worker('workers/loadColors.js')
-        const data = {
-            colors: this._colors,
-            eliminatedColors: this.eliminatedColors,
-            selectedColors: this.selectedColors,
-        }
-        worker.postMessage([data, this._reloadBgKey])
-        worker.addEventListener('message', msg => {
-            const [[colors, nextIterationColors], oldKey] = msg.data
-
-            if (oldKey !== this._getBgKey) {
-                return
-            }
-
-            assertColorsAry(colors)
-            assertColorsAry(nextIterationColors)
-
-            //colors.push(...this._colors)
-            //this._colors = colors
-
-            //nextIterationColors.push(...this._nextIterationColors)
-            //this._nextIterationColors = nextIterationColors
-        })
+    private _loadColors(data: ColorsLoadData) {
+        this._colors = Colors.load(data)
     }
 
     /**
@@ -210,7 +166,7 @@ export class Game {
     }
 
     private _select(num: 1 | 2): void {
-        const [selected, rejected] = this._colors.selectColor(num)
+        const [selected, rejected] = this._colors.select(num)
         this.selectedColors.add(selected)
         this.eliminatedColors.add(rejected)
     }

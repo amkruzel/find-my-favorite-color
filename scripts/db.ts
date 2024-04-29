@@ -16,17 +16,6 @@ interface AuthData {
     body: FormData
 }
 
-interface AppWithUser {
-    user: User
-    game: Game
-}
-
-function assertUser(app: App): asserts app is AppWithUser {
-    if (!app.user) {
-        return
-    }
-}
-
 export class Db {
     private _path: string
     private _pendingSave: boolean
@@ -58,7 +47,6 @@ export class Db {
         }
 
         this._pendingSave = true
-        assertUser(app)
 
         const game = await this._getGameIfOneExists(app.user.id)
         console.log(game)
@@ -105,10 +93,7 @@ export class Db {
         }
     }
 
-    private async _createOrUpdate(
-        app: AppWithUser,
-        gameId?: string
-    ): Promise<boolean> {
+    private async _createOrUpdate(app: App, gameId?: string): Promise<boolean> {
         const form = this._buildForm(app)
 
         let response: Response
@@ -121,7 +106,7 @@ export class Db {
         return true
     }
 
-    private _buildForm(app: AppWithUser): FormData {
+    private _buildForm(app: App): FormData {
         const elimColorBlob = app.game.eliminatedColors.blob
         const selectColorBlob = app.game.selectedColors.blob
         const colorsBlob = new Blob([app.game.next1000Colors])
