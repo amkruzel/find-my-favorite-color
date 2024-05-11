@@ -1,35 +1,32 @@
-import { updateLogin } from './ui'
+import { Ui } from './ui/ui'
 import { User, getUser } from './user'
+
+export class Auth {
+    static saveLocal(user: User) {
+        localStorage.setItem('hasUserSaved', 'true')
+        localStorage.setItem('id', user.id)
+        localStorage.setItem('email', user.email)
+    }
+
+    static clearLocal() {
+        localStorage.removeItem('hasUserSaved')
+        localStorage.removeItem('id')
+        localStorage.removeItem('email')
+    }
+
+    static shouldSaveLocal(form: HTMLFormElement) {
+        const stayLoggedInElement = form.elements.namedItem('stayLoggedIn')
+
+        return (
+            stayLoggedInElement instanceof HTMLInputElement &&
+            stayLoggedInElement.checked
+        )
+    }
+}
 
 interface AuthData {
     method: 'post'
     body: FormData
-}
-
-export async function tryLogin(data: AuthData): Promise<User | Error> {
-    const response = await _fetchUsers('auth-with-password', data)
-
-    return await _parseResponse(response, 'record')
-}
-
-export async function trySignup(data: AuthData): Promise<User | Error> {
-    const response = await _fetchUsers('records', data)
-
-    return await _parseResponse(response)
-}
-
-export async function tryChangePw(data: AuthData): Promise<User | Error> {
-    const response = await _fetchUsers('request-password-reset', data)
-
-    console.log(response)
-
-    return await _parseResponse(response)
-}
-
-export function saveAuthLocal(userId: string, email: string) {
-    localStorage.setItem('hasUserSaved', 'true')
-    localStorage.setItem('id', userId)
-    localStorage.setItem('email', email)
 }
 
 export async function tryLocalLogin(): Promise<User | Error> {
@@ -37,19 +34,13 @@ export async function tryLocalLogin(): Promise<User | Error> {
         return Error('User ID is not saved locally')
     }
 
-    updateLogin(localStorage.getItem('email') as string)
+    Ui.updateAuth(localStorage.getItem('email') as string)
 
     const id = localStorage.getItem('id') as string
 
     const response = await _fetchUsers(`records/${id}`)
 
     return await _parseResponse(response)
-}
-
-export function clearAuthLocal() {
-    localStorage.removeItem('hasUserSaved')
-    localStorage.removeItem('id')
-    localStorage.removeItem('email')
 }
 
 async function _parseResponse(

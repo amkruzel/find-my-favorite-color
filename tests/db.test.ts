@@ -1,14 +1,8 @@
 import { Db } from 'scripts/db'
-import { Game } from 'scripts/game'
 import { App } from 'scripts/app'
-import { getUser, guestUser } from 'scripts/user'
-import { CondensedColors } from 'scripts/condensedColors'
 import { TestGame } from './game.test'
 
-const app: App = {
-    game: new TestGame(),
-    user: guestUser(),
-}
+const app = new App()
 
 const db = new Db('http', '34.42.14.226', '8090')
 
@@ -20,14 +14,6 @@ function assertTrue(val: any): asserts val is true {
 
 for (let i = 0; i < 0xfffff; i++) {
     app.game.selectColor(1)
-}
-
-async function testSaveGame() {
-    await db.save(app)
-}
-
-async function testGetGame() {
-    //await db.getGame(app.user!.id)
 }
 
 async function testSaveAndLoad() {

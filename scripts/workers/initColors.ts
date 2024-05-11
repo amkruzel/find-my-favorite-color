@@ -1,4 +1,4 @@
-import { colorsAry, shuffle } from 'scripts/game'
+import { shuffle } from 'scripts/utils/utils'
 
 const MAX_COLORS = 0x1000000
 
@@ -7,12 +7,8 @@ const MAX_COLORS = 0x1000000
  * @param message
  */
 self.onmessage = message => {
-    console.log('starting from worker thread')
-
     const [ary, key] = message.data
     buildArrayIncrementally(ary, key)
-
-    console.log('completed from worker thread - now returning')
 }
 
 function fullShuffledArray(origColors: number[]): number[] {
@@ -40,7 +36,6 @@ function buildArrayIncrementally(colors: number[], key: number): void {
 
         const subset = allColors.slice(min, max)
 
-        console.log(`sending elements ${min} through ${max}`)
         self.postMessage([subset, key])
     }
 }

@@ -1,6 +1,6 @@
 "use strict";
 (() => {
-  // scripts/game.ts
+  // scripts/utils/utils.ts
   function shuffle(array) {
     let currentIndex = array.length;
     while (currentIndex != 0) {
@@ -17,10 +17,8 @@
   // scripts/workers/initColors.ts
   var MAX_COLORS = 16777216;
   self.onmessage = (message) => {
-    console.log("starting from worker thread");
     const [ary, key] = message.data;
     buildArrayIncrementally(ary, key);
-    console.log("completed from worker thread - now returning");
   };
   function fullShuffledArray(origColors) {
     const colors = [];
@@ -42,7 +40,6 @@
         break;
       }
       const subset = allColors.slice(min, max);
-      console.log(`sending elements ${min} through ${max}`);
       self.postMessage([subset, key]);
     }
   }

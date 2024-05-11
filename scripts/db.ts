@@ -25,20 +25,54 @@ export class Db {
         this._pendingSave = false
     }
 
+    async try(action: string, formElement: HTMLFormElement) {
+        const form = new FormData(formElement)
+
+        const data = {
+            method: 'post',
+            body: form,
+        } as const
+
+        if (action === 'login') {
+            return await this.tryLogin(data)
+        }
+
+        const email = form.get('identity') as string
+        form.set('email', email)
+        if (action === 'changepw') {
+            return await this.tryChangePw(data)
+        }
+
+        const pw = form.get('password') as string | null
+        if (!pw || !email) {
+            return Error(
+                'Something went wrong - please refresh the page and try again.'
+            )
+        }
+
+        form.append('passwordConfirm', pw)
+
+        return await this.trySignup(data)
+    }
+
     async tryLogin(data: AuthData): Promise<User | Error> {
         const response = await this._fetchUsers('auth-with-password', data)
 
         return await this._parseResponse(response, 'record')
     }
 
-    async trySignup(data: AuthData): Promise<User | Error> {
+    private async trySignup(data: AuthData): Promise<User | Error> {
         const response = await this._fetchUsers('records', data)
 
         return await this._parseResponse(response)
     }
 
-    async save(app: App): Promise<boolean> {
-        if (app.user.id === 'guest') {
+    private async tryChangePw(data: AuthData): Promise<Error> {
+        return new Error("Method 'tryChangePw' is not implemented!")
+    }
+
+    async save(game: Game, userId: string): Promise<boolean> {
+        if (userId === 'guest') {
             return false
         }
 
@@ -48,39 +82,34 @@ export class Db {
 
         this._pendingSave = true
 
-        const game = await this._getGameIfOneExists(app.user.id)
-        console.log(game)
+        const prevGame = await this._getGameIfOneExists(userId)
 
-        const rv = await this._createOrUpdate(app, game?.id)
+        const rv = await this._createOrUpdate(game, userId, prevGame?.id)
 
         this._pendingSave = false
 
         return rv
     }
 
-    async load(app: App) {
-        if (app.user.id === 'guest') {
-            return
-        }
-
-        const game = await this._getGameIfOneExists(app.user.id)
+    async load(userId: string): Promise<Game | Error> {
+        const game = await this._getGameIfOneExists(userId)
 
         if (!game) {
-            return
+            return new Error(`User ID '${userId}' does not have a game saved.`)
         }
 
-        const [eliminatedColors, selectedColors, colors] = await this._getFiles(
-            game
-        )
+        const [eliminated, selected, colors] = await this._getFiles(game)
 
-        if (!eliminatedColors || !selectedColors || !colors) {
-            return
+        if (!eliminated || !selected || !colors) {
+            return new Error('Error loading game.')
         }
 
-        app.game = new Game(
-            eliminatedColors,
-            selectedColors,
-            colors,
+        return new Game(
+            {
+                eliminated,
+                selected,
+                colors,
+            },
             game.properties
         )
     }
@@ -93,8 +122,12 @@ export class Db {
         }
     }
 
-    private async _createOrUpdate(app: App, gameId?: string): Promise<boolean> {
-        const form = this._buildForm(app)
+    private async _createOrUpdate(
+        game: Game,
+        userId: string,
+        gameId?: string
+    ): Promise<boolean> {
+        const form = this._buildForm(game, userId)
 
         let response: Response
 
@@ -106,18 +139,18 @@ export class Db {
         return true
     }
 
-    private _buildForm(app: App): FormData {
-        const elimColorBlob = app.game.eliminatedColors.blob
-        const selectColorBlob = app.game.selectedColors.blob
-        const colorsBlob = new Blob([app.game.next1000Colors])
+    private _buildForm(game: Game, userId: string): FormData {
+        const elimColorBlob = game.eliminatedColors.blob
+        const selectColorBlob = game.selectedColors.blob
+        const colorsBlob = new Blob([game.next1000Colors])
 
         const form = new FormData()
 
         form.set('eliminatedColors', elimColorBlob)
         form.set('selectedColors', selectColorBlob)
         form.set('colors', colorsBlob)
-        form.set('properties', JSON.stringify(app.game.properties))
-        form.set('user', app.user.id)
+        form.set('properties', JSON.stringify(game.properties))
+        form.set('user', userId)
 
         return form
     }

@@ -1,11 +1,10 @@
-import { Game, color } from 'scripts/game'
+import { Game } from 'scripts/game'
 
 //import * as fs from 'fs'
 import * as fsPromises from 'fs/promises'
 import { TestColors } from './colors.test'
 import { TestCondensedColors } from './condensedColors.test'
-
-const MAX_COLORS = 0x1000000
+import { color } from 'scripts/colors'
 
 export class TestGame extends Game {
     _colors: TestColors
@@ -69,7 +68,7 @@ function testSelectColor() {
 function testUintArray() {
     const ary = new Uint32Array(0x80000)
 
-    for (let i = 0; i < MAX_COLORS; i++) {
+    for (let i = 0; i < Game.MAX_COLORS; i++) {
         const [index, bit] = _split(i as color)
 
         const num = ary[index!]
@@ -115,7 +114,7 @@ async function testColorUniqueness() {
     const g = new TestGame()
     const colors = new Set<color>()
 
-    for (let i = 0; i < MAX_COLORS / 2; i++) {
+    for (let i = 0; i < Game.MAX_COLORS / 2; i++) {
         await _assertTrue(!colors.has(g.color1))
         await _assertTrue(!colors.has(g.color2))
 
@@ -149,12 +148,12 @@ function testCheckForNewIteration() {
     }
 
     function incrementVals() {
-        curColors = MAX_COLORS / 2 ** curIter
+        curColors = Game.MAX_COLORS / 2 ** curIter
         curIter++
     }
 
     while (curColors !== 2) {
-        loop(g, MAX_COLORS / 2 ** curIter - 1)
+        loop(g, Game.MAX_COLORS / 2 ** curIter - 1)
         _assertTrue(g.currentIteration === curIter)
         g.selectColor(1)
         incrementVals()

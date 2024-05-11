@@ -1,10 +1,9 @@
-import { updateGameUi, updateLogin } from './ui'
+import { Ui } from './ui/ui'
 import { Game } from './game'
-import { clearAuthLocal, saveAuthLocal, tryLocalLogin } from './auth'
+import { Auth, tryLocalLogin } from './auth'
 import { User, guestUser } from './user'
 import { Db } from './db'
 import { NotifyType, notify } from './notification'
-import { logout, signupOrLogin } from './eventHandlers'
 
 function assertType<T>(
     elem: any,
@@ -34,33 +33,23 @@ export class App {
     private _game: Game
     private db: Db
 
-    private static isInternal: boolean = false
-
     constructor() {
-        if (!App.isInternal) {
-            throw new TypeError('App is not constructable.')
-        }
         this._user = guestUser()
         this._game = new Game()
         this.db = new Db('http', '34.42.14.226', '8090')
-
-        App.isInternal = false
     }
 
-    static start() {
-        App.isInternal = true
-        const app = new App()
-        app.addEventListeners()
-        tryLocalLogin().then(response => {
-            if (response instanceof Error || !response) {
-                updateGameUi(app.game)
-                return
-            }
+    async init() {
+        const user = await tryLocalLogin()
 
-            app._user = response
-            app.db.load(app).then(() => updateGameUi(app.game))
-            updateLogin(response.email)
-        })
+        if (user instanceof Error || !user) {
+            Ui.updateGame(this.game)
+            return
+        }
+
+        this._user = user
+
+        await this.loadGame()
     }
 
     get user(): User {
@@ -75,94 +64,108 @@ export class App {
         this._game = game
     }
 
-    private addEventListeners() {
-        this.addAuthEventListeners()
-        this.addGameEventListeners()
-    }
-
-    private addAuthEventListeners() {
-        this.addLoginEventListener()
-        this.addLogoutEventListener()
-    }
-
-    private addLoginEventListener() {
-        function _shouldSaveAuthLocal(form: HTMLFormElement): boolean {
-            const stayLoggedInElement = form.elements.namedItem('stayLoggedIn')
-
-            return (
-                stayLoggedInElement instanceof HTMLInputElement &&
-                stayLoggedInElement.checked
-            )
+    async loadGame(): Promise<boolean> {
+        if (!this.isLoggedIn()) {
+            return false
         }
 
-        getAndAssertType('.login', HTMLFormElement).onsubmit = async (
-            e: SubmitEvent
-        ) => {
-            const form = e.target
-            assertType(form, HTMLFormElement)
+        const game = await this.db.load(this._user.id)
 
-            const user = await signupOrLogin(form, e.submitter?.dataset.action!)
-
-            if (user instanceof Error) {
-                notify(NotifyType.error, user.message)
-                return
-            }
-
-            this._user = user
-
-            if (_shouldSaveAuthLocal(form)) {
-                saveAuthLocal(user.id, user.email)
-            } else {
-                clearAuthLocal()
-            }
-
-            form.reset()
-            updateLogin(user.email)
-        }
-    }
-
-    private addLogoutEventListener() {
-        getAndAssertType('#logout-btn', HTMLInputElement).onclick = e => {
-            logout(e as PointerEvent)
-            this._user = guestUser()
-        }
-    }
-
-    private addGameEventListeners() {
-        this.addShuffleEventListener()
-        this.addClearEventListener()
-        this.addColorEventListener()
-    }
-
-    private addShuffleEventListener() {
-        getButton('.new-colors').onclick = async () => {
-            this.game.shuffleColors()
-            this.saveGameAndUpdate()
-        }
-    }
-    private addClearEventListener() {
-        getButton('.clear-data').onclick = async () => {
-            this.game.reset()
-            this.saveGameAndUpdate()
-        }
-    }
-
-    private addColorEventListener() {
-        const clickColor = async (num: 1 | 2) => {
-            this.game.selectColor(num)
-            this.saveGameAndUpdate()
+        if (game instanceof Error) {
+            notify(NotifyType.error, game.message)
+            return false
         }
 
-        getAndAssertType('#color1', HTMLDivElement).onclick = async () =>
-            await clickColor(1)
-        getAndAssertType('#color2', HTMLDivElement).onclick = async () =>
-            await clickColor(2)
+        this._game = game
+        return true
     }
 
-    private saveGameAndUpdate() {
-        this.db.save(this)
-        updateGameUi(this.game)
+    async saveGame(): Promise<boolean> {
+        if (!this.isLoggedIn()) {
+            return false
+        }
+
+        await this.db.save(this._game, this._user.id)
+        return true
+    }
+
+    logoutUser(e: Event) {
+        if (e.target instanceof HTMLFormElement) {
+            e.target.reset()
+        }
+
+        this._user = guestUser()
+        Auth.clearLocal()
+    }
+
+    private set user(user: User) {
+        this._user = user
+    }
+
+    private isLoggedIn() {
+        return this._user.id !== 'guest'
+    }
+
+    async trySignupOrLogin(e: SubmitEvent) {
+        const form = e.target
+        assertType(form, HTMLFormElement)
+
+        console.log(this)
+
+        const user = await this.db.try(e.submitter?.dataset.action!, form)
+
+        if (user instanceof Error) {
+            notify(NotifyType.error, user.message)
+            return
+        }
+
+        this._user = user
+
+        if (Auth.shouldSaveLocal(form)) {
+            Auth.saveLocal(user)
+        } else {
+            Auth.clearLocal()
+        }
+
+        form.reset()
+        return user
+    }
+
+    debug() {
+        console.log(this)
+    }
+
+    shuffleGameColors() {
+        this.gameAction('shuffle')
+    }
+
+    resetGame() {
+        this.gameAction('reset')
+    }
+
+    selectGameColor(num: 1 | 2) {
+        this.gameAction('selectColor', num)
+    }
+
+    private gameAction(
+        action: 'shuffle' | 'reset' | 'selectColor',
+        num?: 1 | 2
+    ) {
+        switch (action) {
+            case 'shuffle':
+                this.game.shuffleColors()
+                break
+            case 'reset':
+                this.game.reset()
+                break
+            case 'selectColor':
+                if (num) {
+                    this._game.selectColor(num)
+                }
+                break
+            default:
+                break
+        }
+        this.db.save(this._game, this._user.id)
     }
 }
-
-App.start()

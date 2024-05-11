@@ -101,11 +101,11 @@
     shuffleColors() {
       this._colors.shuffle();
     }
-    isEliminated(color2) {
-      return this.eliminatedColors.has(color2);
+    isEliminated(color3) {
+      return this.eliminatedColors.has(color3);
     }
-    isSelected(color2) {
-      return this.selectedColors.has(color2);
+    isSelected(color3) {
+      return this.selectedColors.has(color3);
     }
     _init() {
       this.eliminatedColors = new CondensedColors();
@@ -195,12 +195,12 @@
     }
     first1000() {
       for (let i = 0; i < 1e3; i++) {
-        let color2;
+        let color3;
         do {
-          color2 = ~~(Math.random() * Game.MAX_COLORS);
-          assertColor(color2);
-        } while (this.ary.includes(color2));
-        this.ary.push(color2);
+          color3 = ~~(Math.random() * Game.MAX_COLORS);
+          assertColor(color3);
+        } while (this.ary.includes(color3));
+        this.ary.push(color3);
       }
       assertColorsAry(this.ary);
     }
@@ -312,10 +312,15 @@
     }
   }
 
-  // scripts/workers/loadColors.ts
-  var MAX_COLORS = 16777216;
+  // scripts/workers/colors.ts
   self.onmessage = (message) => {
-    const [colors, arrays, key] = message.data;
+    const [[colors, arrays], key] = message.data;
+    if (arrays === null) {
+      const shuffledColors = fullShuffledArray(colors);
+      assertColorsAry(shuffledColors);
+      sendIncrementally(shuffledColors, [], key);
+      return;
+    }
     const eliminated = new CondensedColors(arrays.eliminated);
     const selected = new CondensedColors(arrays.selected);
     const [colorsToAdd, nextIterColors] = doWork(colors, {
@@ -325,22 +330,32 @@
     assertColorsAry(colorsToAdd);
     sendIncrementally(colorsToAdd, nextIterColors, key);
   };
+  function fullShuffledArray(origColors) {
+    const colors = [];
+    for (let i = 0; i < Game.MAX_COLORS; i++) {
+      if (origColors.includes(i)) {
+        continue;
+      }
+      colors.push(i);
+    }
+    return shuffle(colors);
+  }
   function doWork(colors, arrays) {
     const newColors = [];
     const nextIterColors = [];
-    for (let color2 = 0; color2 < MAX_COLORS; color2++) {
-      assertColor(color2);
-      const isEliminated = arrays.eliminated.has(color2);
-      const isSelected = arrays.selected.has(color2);
-      const alreadyIncluded = colors.includes(color2);
+    for (let color3 = 0; color3 < Game.MAX_COLORS; color3++) {
+      assertColor(color3);
+      const isEliminated = arrays.eliminated.has(color3);
+      const isSelected = arrays.selected.has(color3);
+      const alreadyIncluded = colors.includes(color3);
       if (isSelected) {
-        nextIterColors.push(color2);
+        nextIterColors.push(color3);
         continue;
       }
       if (isEliminated || alreadyIncluded) {
         continue;
       }
-      newColors.push(color2);
+      newColors.push(color3);
     }
     return [shuffle(newColors), shuffle(nextIterColors)];
   }
@@ -349,7 +364,7 @@
     for (let i = 0; i < 170; i++) {
       const min = i * HUNDRED_THOU;
       const max = min + HUNDRED_THOU;
-      if (min >= MAX_COLORS) {
+      if (min >= Game.MAX_COLORS) {
         break;
       }
       const colorsSubset = colors.slice(min, max);
@@ -358,4 +373,4 @@
     }
   }
 })();
-//# sourceMappingURL=loadColors.js.map
+//# sourceMappingURL=colors.js.map

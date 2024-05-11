@@ -1,5 +1,7 @@
 import { Colors } from 'scripts/colors'
-import { MAX_COLORS, color, colorsAry, shuffle } from 'scripts/game'
+import { color, colorsAry } from 'scripts/colors'
+import { Game } from 'scripts/game'
+import { shuffle } from 'scripts/utils/utils'
 
 export class TestColors extends Colors {
     constructor() {
@@ -14,10 +16,10 @@ export class TestColors extends Colors {
         return this.selectedColors
     }
 
-    protected background() {
+    protected bg() {
         const tmpClr = this.ary
         let newColors: number[] = []
-        for (let i = 0; i < MAX_COLORS; i++) {
+        for (let i = 0; i < Game.MAX_COLORS; i++) {
             if (tmpClr.includes(i as color)) {
                 continue
             }
@@ -31,7 +33,7 @@ export class TestColors extends Colors {
             const min = i * HUNDRED_THOU
             const max = min + HUNDRED_THOU
 
-            if (min >= MAX_COLORS) {
+            if (min >= Game.MAX_COLORS) {
                 break
             }
 

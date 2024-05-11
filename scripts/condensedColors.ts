@@ -1,19 +1,7 @@
-import type { color } from './game'
+import type { color } from './colors'
 
 type index = number & { __type: index }
 type bit = number & { __type: bit }
-
-function assertIndex(value: number): asserts value is index {
-    if (parseInt(`${value}`) !== value || value < 0 || value >= 0x80000) {
-        throw new Error('Not an index!')
-    }
-}
-
-function assertBit(value: number): asserts value is bit {
-    if (parseInt(`${value}`) !== value || value < 0 || value & (value - 1)) {
-        throw new Error('Not a bit!')
-    }
-}
 
 /**
  * This class represents a Uint32Array of length 0x80000
@@ -69,5 +57,17 @@ export class CondensedColors {
         } else {
             this.ary = new Uint32Array(0x80000)
         }
+    }
+}
+
+function assertIndex(value: number): asserts value is index {
+    if (parseInt(`${value}`) !== value || value < 0 || value >= 0x80000) {
+        throw new Error('Not an index!')
+    }
+}
+
+function assertBit(value: number): asserts value is bit {
+    if (parseInt(`${value}`) !== value || value < 0 || value & (value - 1)) {
+        throw new Error('Not a bit!')
     }
 }

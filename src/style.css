@@ -35,28 +35,64 @@ button {
     font-size: 14px;
 }
 
+input[type="submit"]:hover,
+input[type="button"]:hover,
+button:hover {
+    cursor: pointer;
+}
+
 label {
     text-overflow: ellipsis;
     overflow: hidden;
 }
 
+input {
+    box-sizing: border-box;
+    width: 100%;
+    height: 100%;
+}
+
+.auth-form-container {
+    position: absolute;
+    top: 30px;
+    right: 30px;
+    padding: 5px;
+    border: 1px solid black;
+    width: 400px;
+}
+
 .form-field {
+    height: 35px;
     display: grid;
     grid-auto-flow: column;
-    grid-template-columns: 1fr 2fr;
+    justify-items: stretch;
+}
+
+.auth-buttons {
+    gap: 10px;
+    grid-template-columns: 1fr 1fr;
 }
 
 .stay-logged-in {
     display: grid;
     grid-auto-flow: column;
-    grid-template-columns: auto;
-    justify-self: start;
-    height: min-content;
+    grid-template-columns: 30px auto;
+    justify-items: start;
+    align-items: center;
 }
 
-.hidden {
-    visibility: hidden;
-    display: none;
+#stay-logged-in {
+    position: relative;
+    height: 20px;
+    left: -8px;
+    justify-self: start;
+}
+
+.welcome-container {
+    display: grid;
+    gap: 5px;
+    margin: 10px;
+    grid-template-rows: repeat(2, 35px);
 }
 
 .stats-container {
@@ -144,4 +180,9 @@ label {
         height: 200px;
         width: 200px;
     }
+}
+
+.hidden {
+    visibility: hidden;
+    display: none;
 }

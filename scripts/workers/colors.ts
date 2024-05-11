@@ -1,16 +1,17 @@
-import { assertColor, assertColorsAry } from 'scripts/colors'
+import { assertColor, assertColorsAry, color, colorsAry } from 'scripts/colors'
 import { CondensedColors } from 'scripts/condensedColors'
-import { colorsAry, color } from 'scripts/colors'
+import { Game } from 'scripts/game'
 import { shuffle } from 'scripts/utils/utils'
 
-const MAX_COLORS = 0x1000000
-
-/**
- * Takes the current _colors array as input and returns a huge array containing all remaining colors, shuffled
- * @param message
- */
 self.onmessage = message => {
-    const [colors, arrays, key] = message.data
+    const [[colors, arrays], key] = message.data
+
+    if (arrays === null) {
+        const shuffledColors = fullShuffledArray(colors)
+        assertColorsAry(shuffledColors)
+        sendIncrementally(shuffledColors, [], key)
+        return
+    }
 
     const eliminated = new CondensedColors(arrays.eliminated)
     const selected = new CondensedColors(arrays.selected)
@@ -22,6 +23,18 @@ self.onmessage = message => {
 
     assertColorsAry(colorsToAdd)
     sendIncrementally(colorsToAdd, nextIterColors, key)
+}
+
+function fullShuffledArray(origColors: number[]): number[] {
+    const colors: number[] = []
+    for (let i = 0; i < Game.MAX_COLORS; i++) {
+        if (origColors.includes(i)) {
+            continue
+        }
+        colors.push(i)
+    }
+
+    return shuffle(colors)
 }
 
 function doWork(
@@ -38,7 +51,7 @@ function doWork(
     const newColors = []
     const nextIterColors = []
 
-    for (let color = 0; color < MAX_COLORS; color++) {
+    for (let color = 0; color < Game.MAX_COLORS; color++) {
         assertColor(color)
         const isEliminated = arrays.eliminated.has(color)
         const isSelected = arrays.selected.has(color)
@@ -69,7 +82,7 @@ function sendIncrementally(
         const min = i * HUNDRED_THOU
         const max = min + HUNDRED_THOU
 
-        if (min >= MAX_COLORS) {
+        if (min >= Game.MAX_COLORS) {
             break
         }
 
