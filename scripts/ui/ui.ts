@@ -86,7 +86,7 @@ export class Ui {
         loginClasses.add('hidden')
         logoutClasses.remove('hidden')
         welcomeContainerClasses.remove('hidden')
-        welcomeMessage.textContent = `Welcome ${name}`
+        welcomeMessage.textContent = `Welcome, ${name}`
     }
 
     static updateGame(game: Game) {

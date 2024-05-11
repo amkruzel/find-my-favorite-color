@@ -1,11 +1,17 @@
 * {
-    font-family: 'Sometype Mono', Verdana, Geneva, Tahoma, sans-serif;
+    font-family: 'Teachers', Verdana, Geneva, Tahoma, sans-serif;
+}
+
+body {
+    background-color: #f4f3f2;
 }
 
 header {
+    padding-left: 20px;
     display: grid;
     grid-auto-flow: column;
     align-items: center;
+    justify-items: center;
 }
 
 form {
@@ -52,12 +58,18 @@ input {
     height: 100%;
 }
 
+.auth-form-container,
+.stats-container {
+    border: 1px solid black;
+    box-shadow: 6px 6px 41px 0px #aaa;
+    border-radius: 5px;
+    padding: 10px;
+}
+
 .auth-form-container {
     position: absolute;
+    left: 30px;
     top: 30px;
-    right: 30px;
-    padding: 5px;
-    border: 1px solid black;
     width: 400px;
 }
 
@@ -96,10 +108,9 @@ input {
 }
 
 .stats-container {
-    border-radius: 10px;
-    padding: 10px;
-    box-shadow: 6px 6px 41px 0px #888;
-    width: max-content;
+    width: 350px;
+    margin-left: auto;
+    margin-right: auto;
 }
 
 .colors-selected {
@@ -168,7 +179,23 @@ input {
   
 
 @media only screen and (max-width: 650px) {
-    .stats-container {
+
+    header {
+        padding-left: 0;
+        margin: auto;
+    }
+
+    h1 {
+        text-align: center;
+    }
+
+    .auth-form-container {
+        position: unset;
+        margin: auto;
+    }
+
+    .stats-container,
+    .auth-form-container {
         width: 90vw
     }
 

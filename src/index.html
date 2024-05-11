@@ -7,7 +7,7 @@
         <link rel="stylesheet" href="style.css">
         <link rel="preconnect" href="https://fonts.googleapis.com">
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-        <link href="https://fonts.googleapis.com/css2?family=Nanum+Gothic:wght@400;700;800&family=Playfair+Display:ital,wght@0,500;0,600;0,700;0,800;0,900;1,500;1,600;1,700;1,800;1,900&family=Sometype+Mono:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500;1,600;1,700&display=swap" rel="stylesheet">
+        <link href="https://fonts.googleapis.com/css2?family=Teachers:ital,wght@0,400..800;1,400..800&display=swap" rel="stylesheet">
         <title>Find my favorite color</title>
     </head>
     <body>
@@ -64,16 +64,20 @@
         <div class="notification-container">
 
         </div>
-        <h2 class="stats-container"> Stats <ul>
-                <li>Current Iteration: <span class="current-iteration"></span>
+        <h2 class="stats-container">Stats 
+            <ul>
+                <li>
+                    Current Iteration: <span class="current-iteration"></span>
                 </li>
-                <li>Colors remaining in current iteration: <span class="colors-remaining-cur-iter"></span>
+                <li>
+                    Colors remaining in current iteration: <span class="colors-remaining-cur-iter"></span>
                 </li>
             </ul>
+            <hr />
+            <button class="new-colors">Generate New Colors</button>
+            <button class="clear-data">Clear Data</button>
+            <button class="debug">Debug</button>
         </h2>
-        <button class="new-colors">Generate New Colors</button>
-        <button class="clear-data">Clear Data</button>
-        <button class="debug">Debug</button>
         <div class="color-container">
             <div class="color" id="color1"></div>
             <div class="color" id="color2"></div>

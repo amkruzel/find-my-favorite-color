@@ -80,7 +80,7 @@
       loginClasses.add("hidden");
       logoutClasses.remove("hidden");
       welcomeContainerClasses.remove("hidden");
-      welcomeMessage.textContent = `Welcome ${name}`;
+      welcomeMessage.textContent = `Welcome, ${name}`;
     }
     static updateGame(game) {
       _Ui.tryUpdateCurIter(game);
@@ -776,7 +776,7 @@
     selectGameColor(num) {
       this.gameAction("selectColor", num);
     }
-    gameAction(action, num) {
+    async gameAction(action, num) {
       switch (action) {
         case "shuffle":
           this.game.shuffleColors();

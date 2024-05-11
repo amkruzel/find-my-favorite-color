@@ -114,6 +114,14 @@ export class Db {
         )
     }
 
+    async delete(userId: string) {
+        const game = await this._getGameIfOneExists(userId)
+
+        if (!game) {
+            return new Error(`User ID '${userId}' does not have a game saved.`)
+        }
+    }
+
     private get path() {
         return {
             games: this._path + '/api/collections/games',

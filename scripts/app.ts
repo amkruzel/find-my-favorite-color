@@ -147,7 +147,7 @@ export class App {
         this.gameAction('selectColor', num)
     }
 
-    private gameAction(
+    private async gameAction(
         action: 'shuffle' | 'reset' | 'selectColor',
         num?: 1 | 2
     ) {
