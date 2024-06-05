@@ -45,7 +45,9 @@ export class CondensedColors {
         const num = this.ary[val]
 
         if (num === undefined) {
-            throw new Error('Value is undefined but should not be')
+            throw new Error(
+                `Value is undefined but should not be - val: '${val}'`
+            )
         }
 
         return num
@@ -53,7 +55,7 @@ export class CondensedColors {
 
     private init(vals?: ArrayBuffer) {
         if (vals) {
-            this.ary = new Uint32Array(vals)
+            this.ary = new Uint32Array(vals, 0, 0x80000)
         } else {
             this.ary = new Uint32Array(0x80000)
         }

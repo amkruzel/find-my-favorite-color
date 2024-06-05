@@ -1,86 +1,41 @@
 "use strict";
 (() => {
-  // scripts/ui/uielement.ts
-  var UiElement = class {
-    constructor(selector) {
-      if (!selector) {
-        throw new TypeError("UIElement constructor selector was undefined");
-      }
-      const val = document.querySelector(selector);
-      this.assertType(val);
-      this._value = val;
-    }
-    assertType(el) {
-      if (el === null || !(el instanceof Element)) {
-        throw new TypeError("Invalid selector.");
-      }
-    }
-    addEventListener(type, event, options) {
-      this._value.addEventListener(type, event, options);
-    }
-  };
-
-  // scripts/ui/ui.ts
+  // scripts/ui.ts
   var Ui = class _Ui {
-    constructor(elems, names) {
-      this.elements = /* @__PURE__ */ new Map();
-      if (!elems) {
-        return;
-      }
-      if (!names) {
-        names = elems;
-      }
-      for (let i = 0; i < elems.length; i++) {
-        const selector = elems[i];
-        const name = names[i];
-        if (!selector || !name) {
-          return;
-        }
-        if (!this.add(selector, name)) {
-          return;
-        }
-      }
-    }
-    /**
-     * Attempts to add an element to the Ui. If there is already a value with
-     * the given name, it is not overwritten (the new element is not added).
-     * @param elem
-     * @returns true if the element is added
-     */
-    add(descriptor, name = descriptor, event, handler) {
-      if (this.elements.has(name)) {
-        return false;
-      }
-      this.elements.set(name, new UiElement(descriptor));
-      if (event && handler) {
-        this.get(name)?.addEventListener(event, handler);
-      }
-      return true;
-    }
-    get(name) {
-      return this.elements.get(name);
-    }
     static updateAll(app2) {
       _Ui.updateAuth(app2.user);
       _Ui.updateGame(app2.game);
     }
-    static updateAuth(user) {
-      const name = typeof user === "string" ? user : user.email;
-      const loginClasses = document.querySelector(".login").classList;
-      const logoutClasses = document.querySelector("#logout-btn").classList;
-      const welcomeContainerClasses = document.querySelector(".welcome-container").classList;
-      const welcomeMessage = document.querySelector(".welcome-user");
-      if (!name) {
-        loginClasses.remove("hidden");
-        logoutClasses.add("hidden");
-        welcomeContainerClasses.add("hidden");
-        welcomeMessage.textContent = "";
-        return;
+    static showLoadingMessage() {
+      _Ui.appLoadingMessage("Loading...");
+    }
+    static hideLoadingMessage() {
+      _Ui.appLoadingMessage();
+    }
+    static appLoadingMessage(text) {
+      const message = document.querySelector(".game-loading-message");
+      if (message instanceof HTMLDivElement) {
+        message.textContent = text ?? "";
       }
-      loginClasses.add("hidden");
-      logoutClasses.remove("hidden");
-      welcomeContainerClasses.remove("hidden");
-      welcomeMessage.textContent = `Welcome, ${name}`;
+    }
+    static updateAuth(user) {
+      const name = typeof user === "object" ? user.email : user;
+      const isLoggedIn = name !== "guest";
+      const loginClasses = document.querySelector(".login").classList;
+      const logoutClasses = document.querySelector(".logout-button").classList;
+      const welcomeMessage = document.querySelector(".welcome-user");
+      const signupLoginPopupButtonClasses = document.querySelector(".auth-popup-button").classList;
+      if (isLoggedIn) {
+        loginClasses.add("hidden");
+        signupLoginPopupButtonClasses.add("hidden");
+        logoutClasses.remove("hidden");
+        welcomeMessage.textContent = `Welcome, ${name}`;
+      } else {
+        loginClasses.remove("hidden");
+        signupLoginPopupButtonClasses.remove("hidden");
+        logoutClasses.add("hidden");
+        welcomeMessage.textContent = "";
+      }
     }
     static updateGame(game) {
       _Ui.tryUpdateCurIter(game);
@@ -152,13 +107,15 @@
     get(val) {
       const num = this.ary[val];
       if (num === void 0) {
-        throw new Error("Value is undefined but should not be");
+        throw new Error(
+          `Value is undefined but should not be - val: '${val}'`
+        );
       }
       return num;
     }
     init(vals) {
       if (vals) {
-        this.ary = new Uint32Array(vals);
+        this.ary = new Uint32Array(vals, 0, 524288);
       } else {
         this.ary = new Uint32Array(524288);
       }
@@ -207,6 +164,7 @@
     init(data) {
       this.ary = ColorsAry.new();
       this.selectedColors = Array();
+      this.favoriteColorFound = false;
       if (data) {
         this.ary = ColorsAry.from(data.next1000);
       } else {
@@ -255,7 +213,7 @@
       return c;
     }
     get next1000Colors() {
-      return new Uint32Array(this.ary.slice(0, 1001));
+      return Uint32Array.from(this.ary.slice(-1e3, this.ary.length));
     }
     shuffle() {
       const c1 = this.ary.shift();
@@ -273,6 +231,9 @@
     select(num) {
       const selectedColor = num === 1 ? this.color1 : this.color2;
       const rejectedColor = num === 1 ? this.color2 : this.color1;
+      if (this.favoriteColorFound) {
+        return [selectedColor, rejectedColor];
+      }
       this.selectedColors.push(selectedColor);
       const moreThan2ColorsRemaining = this.ary.length > 2;
       if (moreThan2ColorsRemaining) {
@@ -287,8 +248,8 @@
     }
     resetAry() {
       this.validateAry();
-      const favoriteColorFound = this.selectedColors.length === 1;
-      if (favoriteColorFound) {
+      this.favoriteColorFound = this.selectedColors.length === 1;
+      if (this.favoriteColorFound) {
         this.selectedColors.push(this.selectedColors[0]);
       }
       this.reset();
@@ -435,16 +396,6 @@
     }
   };
 
-  // scripts/user.ts
-  function getUser(obj) {
-    return obj;
-  }
-  function guestUser() {
-    return getUser({
-      id: "guest"
-    });
-  }
-
   // scripts/auth.ts
   var Auth = class {
     static saveLocal(user) {
@@ -462,118 +413,38 @@
       return stayLoggedInElement instanceof HTMLInputElement && stayLoggedInElement.checked;
     }
   };
-  async function tryLocalLogin() {
-    if (!localStorage.getItem("hasUserSaved")) {
-      return Error("User ID is not saved locally");
-    }
-    Ui.updateAuth(localStorage.getItem("email"));
-    const id = localStorage.getItem("id");
-    const response = await _fetchUsers(`records/${id}`);
-    return await _parseResponse(response);
+
+  // scripts/user.ts
+  function userFrom(obj) {
+    return obj;
   }
-  async function _parseResponse(response, propName) {
-    const json = await response.json();
-    if (response.status != 200) {
-      return Error(json.message);
-    }
-    return getUser(propName ? json[propName] : json);
-  }
-  async function _fetchUsers(path, data) {
-    return await fetch(
-      `http://34.42.14.226:8090/api/collections/users/${path}`,
-      data
-    );
+  function guestUser() {
+    return userFrom({
+      id: "guest",
+      email: "guest"
+    });
   }
 
-  // scripts/db.ts
-  var Db = class {
-    constructor(protocol, ip, port) {
-      this._path = `${protocol}://${ip}:${port}`;
-      this._pendingSave = false;
+  // scripts/formConverter.ts
+  var FormConverter = class _FormConverter {
+    static signup(fe) {
+      const form = new FormData(fe);
+      _FormConverter.tryAddProp(form, "password", "passwordConfirm");
+      return form;
     }
-    async try(action, formElement) {
-      const form = new FormData(formElement);
-      const data = {
-        method: "post",
-        body: form
-      };
-      if (action === "login") {
-        return await this.tryLogin(data);
+    static login(fe) {
+      const form = new FormData(fe);
+      _FormConverter.tryAddProp(form, "identity", "email");
+      return form;
+    }
+    static from(obj) {
+      const form = new FormData();
+      for (const [key, val] of obj) {
+        form.append(key, val);
       }
-      const email = form.get("identity");
-      form.set("email", email);
-      if (action === "changepw") {
-        return await this.tryChangePw(data);
-      }
-      const pw = form.get("password");
-      if (!pw || !email) {
-        return Error(
-          "Something went wrong - please refresh the page and try again."
-        );
-      }
-      form.append("passwordConfirm", pw);
-      return await this.trySignup(data);
+      return form;
     }
-    async tryLogin(data) {
-      const response = await this._fetchUsers("auth-with-password", data);
-      return await this._parseResponse(response, "record");
-    }
-    async trySignup(data) {
-      const response = await this._fetchUsers("records", data);
-      return await this._parseResponse(response);
-    }
-    async tryChangePw(data) {
-      return new Error("Method 'tryChangePw' is not implemented!");
-    }
-    async save(game, userId) {
-      if (userId === "guest") {
-        return false;
-      }
-      if (this._pendingSave) {
-        return false;
-      }
-      this._pendingSave = true;
-      const prevGame = await this._getGameIfOneExists(userId);
-      const rv = await this._createOrUpdate(game, userId, prevGame?.id);
-      this._pendingSave = false;
-      return rv;
-    }
-    async load(userId) {
-      const game = await this._getGameIfOneExists(userId);
-      if (!game) {
-        return new Error(`User ID '${userId}' does not have a game saved.`);
-      }
-      const [eliminated, selected, colors] = await this._getFiles(game);
-      if (!eliminated || !selected || !colors) {
-        return new Error("Error loading game.");
-      }
-      return new Game(
-        {
-          eliminated,
-          selected,
-          colors
-        },
-        game.properties
-      );
-    }
-    get path() {
-      return {
-        games: this._path + "/api/collections/games",
-        files: this._path + "/api/files/games",
-        users: this._path + "/api/collections/users"
-      };
-    }
-    async _createOrUpdate(game, userId, gameId) {
-      const form = this._buildForm(game, userId);
-      let response;
-      if (gameId) {
-        response = await this._patch(form, gameId);
-      } else {
-        response = await this._post(form);
-      }
-      return true;
-    }
-    _buildForm(game, userId) {
+    static game(game, userId) {
       const elimColorBlob = game.eliminatedColors.blob;
       const selectColorBlob = game.selectedColors.blob;
       const colorsBlob = new Blob([game.next1000Colors]);
@@ -584,6 +455,168 @@
       form.set("properties", JSON.stringify(game.properties));
       form.set("user", userId);
       return form;
+    }
+    static tryAddProp(form, nameToGet, nameToAdd) {
+      const prop = form.get(nameToGet);
+      if (!prop || !(typeof prop === "string")) {
+        return;
+      }
+      form.set(nameToAdd, prop);
+    }
+  };
+
+  // scripts/db.ts
+  var DbError = class extends Error {
+    constructor(message, options) {
+      super(message, options);
+      this.name = "DbError";
+    }
+  };
+  var Db = class {
+    constructor(protocol, ip, port) {
+      this._path = `${protocol}://${ip}:${port}`;
+      this._pendingSave = false;
+    }
+    /**
+     * required fields are:
+     * - email
+     * - password
+     * - passwordConfirm
+     */
+    async signup(f) {
+      return await this.try("signup", f);
+    }
+    /**
+     * required fields are:
+     * - identity
+     * - password
+     */
+    async login(f) {
+      return await this.try("login", f);
+    }
+    async getUser(id) {
+      const res = await this._getUser(`records/${id}`);
+      return await this._parseUserResponse(res);
+    }
+    async try(action, form) {
+      const data = {
+        method: "post",
+        body: form
+      };
+      switch (action) {
+        case "login":
+          return await this.tryLogin(data);
+        case "signup":
+          return await this.trySignup(data);
+        case "changepw":
+          return await this.tryChangePw(data);
+        default:
+          throw new Error(`'action' was not an expected value`);
+      }
+    }
+    async tryLogin(data) {
+      try {
+        const response = await this._getUser("auth-with-password", data);
+        return await this._parseUserResponse(response, "record");
+      } catch (err) {
+        throw new DbError(
+          "Unable to login; email or password is incorrect.",
+          { cause: err }
+        );
+      }
+    }
+    async trySignup(data) {
+      try {
+        const response = await this._getUser("records", data);
+        return await this._parseUserResponse(response);
+      } catch (err) {
+        throw new DbError("Unable to sign-up; user might already exist.", {
+          cause: err
+        });
+      }
+    }
+    async tryChangePw(data) {
+      throw new Error("Method 'tryChangePw' is not implemented!");
+    }
+    async _getUser(path, data) {
+      return await fetch(`${this.path.users}/${path}`, data);
+    }
+    async _parseUserResponse(response, propName) {
+      const json = await response.json();
+      if (!response.ok) {
+        throw new Error(json?.message, {
+          cause: json
+        });
+      }
+      return userFrom(propName ? json[propName] : json);
+    }
+    async save(game, userId) {
+      if (this.cannotSaveNow(userId)) {
+        return;
+      }
+      this._pendingSave = true;
+      const prevGame = await this._getGameIfOneExists(userId);
+      await this._createOrUpdate(game, userId, prevGame?.id);
+      this._pendingSave = false;
+    }
+    cannotSaveNow(userId) {
+      return userId === "guest" || this._pendingSave;
+    }
+    async load(userId) {
+      const game = await this._getGameIfOneExists(userId);
+      if (!game) {
+        return new Game();
+      }
+      const [eliminated, selected, colors] = await this._getFiles(game);
+      return new Game(
+        {
+          eliminated,
+          selected,
+          colors
+        },
+        game.properties
+      );
+    }
+    async delete(userId) {
+      const game = await this._getGameIfOneExists(userId);
+      if (!game) {
+        return;
+      }
+      await this._delete(game.id);
+    }
+    async _getGameIfOneExists(userId) {
+      const response = await fetch(
+        `${this.path.games}/records?filter=(user='${userId}')`
+      );
+      const json = await response.json();
+      if (json.totalItems === 0) {
+        return null;
+      }
+      if (!response.ok) {
+        throw new DbError(json?.message, {
+          cause: { code: json?.code, data: json?.data }
+        });
+      }
+      if (json.totalItems !== 1) {
+        throw new DbError("User has more than one game saved.");
+      }
+      const game = json.items[0];
+      return {
+        id: game.id,
+        user: game.user,
+        properties: game.properties,
+        eliminatedColors: game.eliminatedColors,
+        selectedColors: game.selectedColors,
+        colors: game.colors
+      };
+    }
+    async _createOrUpdate(game, userId, gameId) {
+      const form = FormConverter.game(game, userId);
+      if (gameId) {
+        await this._patch(form, gameId);
+      } else {
+        await this._post(form);
+      }
     }
     async _post(form) {
       const data = {
@@ -599,6 +632,9 @@
       };
       return fetch(`${this.path.games}/records/${id}`, data);
     }
+    async _delete(id) {
+      return fetch(`${this.path.games}/records/${id}`, { method: "DELETE" });
+    }
     async _getFiles(game) {
       return Promise.all([
         this._getFile(game.id, game.eliminatedColors),
@@ -607,51 +643,145 @@
       ]);
     }
     async _getFile(gameId, filename) {
+      const res = await fetch(`${this.path.files}/${gameId}/${filename}`);
+      if (!res.ok) {
+        throw new DbError(`File ${filename} was unable to be retrieved.`, {
+          cause: await res.json()
+        });
+      }
+      return await res.arrayBuffer();
+    }
+    get path() {
+      return {
+        games: this._path + "/api/collections/games",
+        files: this._path + "/api/files/games",
+        users: this._path + "/api/collections/users"
+      };
+    }
+  };
+
+  // scripts/app.ts
+  var App = class {
+    constructor() {
+      this._user = guestUser();
+      this._game = new Game();
+      this._db = new Db("http", "34.42.14.226", "8090");
+    }
+    get user() {
+      return this._user;
+    }
+    get game() {
+      return this._game;
+    }
+    async init() {
+      await this._init();
+    }
+    async _init() {
       try {
-        const res = await fetch(`${this.path.files}/${gameId}/${filename}`);
-        if (!res.ok) {
-          return null;
-        }
-        return await res.arrayBuffer();
-      } catch (error) {
-        return null;
+        await this.tryLocalLogin();
+        await this.loadGame();
+      } catch (err) {
       }
     }
-    async _getGameIfOneExists(userId) {
+    async tryLocalLogin() {
+      if (!localStorage.getItem("hasUserSaved")) {
+        return;
+      }
+      Ui.updateAuth(localStorage.getItem("email"));
+      const id = localStorage.getItem("id");
+      this._user = await this._db.getUser(id);
+    }
+    async loadGame() {
+      await this._loadGame();
+    }
+    async _loadGame() {
+      if (!this.isLoggedIn) {
+        return;
+      }
       try {
-        const response = await fetch(
-          `${this.path.games}/records?filter=(user='${userId}')`
-        );
-        if (!response.ok) {
-          return null;
-        }
-        const json = await response.json();
-        if (json.totalItems != 1) {
-          return null;
-        }
-        const game = json.items[0];
-        return {
-          id: game.id,
-          user: game.user,
-          properties: game.properties,
-          eliminatedColors: game.eliminatedColors,
-          selectedColors: game.selectedColors,
-          colors: game.colors
-        };
+        this._game = await this._db.load(this._user.id);
       } catch (error) {
-        console.log(error);
-        return null;
       }
     }
-    async _fetchUsers(path, data) {
-      return await fetch(`${this.path.users}/${path}`, data);
+    async saveGame() {
+      await this._saveGame();
     }
-    async _parseResponse(response, propName) {
-      const json = await response.json();
-      if (response.status != 200) {
-        return Error(json.message);
+    async _saveGame() {
+      if (!this.isLoggedIn) {
+        return;
       }
-      return getUser(propName ? json[propName] : json);
+      try {
+        await this._db.save(this._game, this._user.id);
+      } catch (err) {
+      }
+    }
+    async deleteGame() {
+      this._deleteGame();
+    }
+    async _deleteGame() {
+      if (!this.isLoggedIn) {
+        return;
+      }
+      try {
+        await this._db.delete(this._user.id);
+      } catch (err) {
+      }
+    }
+    logoutUser(e) {
+      if (e.target instanceof HTMLFormElement) {
+        e.target.reset();
+      }
+      this._user = guestUser();
+      Auth.clearLocal();
+    }
+    get isLoggedIn() {
+      return this._user.id !== "guest";
+    }
+    async login(form) {
+      this._user = await this._db.login(FormConverter.login(form));
+      this.maybeSaveAuthLocally(form);
+    }
+    async signup(form) {
+      this._user = await this._db.signup(FormConverter.signup(form));
+      this.maybeSaveAuthLocally(form);
+    }
+    maybeSaveAuthLocally(form) {
+      if (Auth.shouldSaveLocal(form)) {
+        Auth.saveLocal(this._user);
+      } else {
+        Auth.clearLocal();
+      }
+    }
+    debug() {
+      console.log(this);
+    }
+    shuffleGameColors() {
+      this.gameAction("shuffle");
+    }
+    resetGame() {
+      this.gameAction("reset");
+    }
+    selectGameColor(num) {
+      this.gameAction("selectColor", num);
+    }
+    async gameAction(action, num) {
+      switch (action) {
+        case "shuffle":
+          this.game.shuffleColors();
+          break;
+        case "reset":
+          this.game.reset();
+          await this.deleteGame();
+          return;
+        case "selectColor":
+          if (num) {
+            this._game.selectColor(num);
+          }
+          break;
+        default:
+          break;
+      }
+      await this.saveGame();
     }
   };
 
@@ -680,144 +810,92 @@
     return elem;
   }
 
-  // scripts/app.ts
-  function assertType(elem, cls) {
-    if (!(elem instanceof cls)) {
-      notify(
-        "error" /* error */,
-        "Something went wrong - please refresh the page and try again."
-      );
-      throw new TypeError("Element is not an instance of " + cls);
-    }
-  }
-  var App = class {
-    constructor() {
-      this._user = guestUser();
-      this._game = new Game();
-      this.db = new Db("http", "34.42.14.226", "8090");
-    }
-    async init() {
-      const user = await tryLocalLogin();
-      if (user instanceof Error || !user) {
-        Ui.updateGame(this.game);
-        return;
-      }
-      this._user = user;
-      await this.loadGame();
-    }
-    get user() {
-      return this._user;
-    }
-    get game() {
-      return this._game;
-    }
-    set game(game) {
-      this._game = game;
-    }
-    async loadGame() {
-      if (!this.isLoggedIn()) {
-        return false;
-      }
-      const game = await this.db.load(this._user.id);
-      if (game instanceof Error) {
-        notify("error" /* error */, game.message);
-        return false;
-      }
-      this._game = game;
-      return true;
-    }
-    async saveGame() {
-      if (!this.isLoggedIn()) {
-        return false;
-      }
-      await this.db.save(this._game, this._user.id);
-      return true;
-    }
-    logoutUser(e) {
-      if (e.target instanceof HTMLFormElement) {
-        e.target.reset();
-      }
-      this._user = guestUser();
-      Auth.clearLocal();
-    }
-    set user(user) {
-      this._user = user;
-    }
-    isLoggedIn() {
-      return this._user.id !== "guest";
-    }
-    async trySignupOrLogin(e) {
-      const form = e.target;
-      assertType(form, HTMLFormElement);
-      console.log(this);
-      const user = await this.db.try(e.submitter?.dataset.action, form);
-      if (user instanceof Error) {
-        notify("error" /* error */, user.message);
-        return;
-      }
-      this._user = user;
-      if (Auth.shouldSaveLocal(form)) {
-        Auth.saveLocal(user);
-      } else {
-        Auth.clearLocal();
-      }
-      form.reset();
-      return user;
-    }
-    debug() {
-      console.log(this);
-    }
-    shuffleGameColors() {
-      this.gameAction("shuffle");
-    }
-    resetGame() {
-      this.gameAction("reset");
-    }
-    selectGameColor(num) {
-      this.gameAction("selectColor", num);
-    }
-    async gameAction(action, num) {
-      switch (action) {
-        case "shuffle":
-          this.game.shuffleColors();
-          break;
-        case "reset":
-          this.game.reset();
-          break;
-        case "selectColor":
-          if (num) {
-            this._game.selectColor(num);
-          }
-          break;
-        default:
-          break;
-      }
-      this.db.save(this._game, this._user.id);
-    }
-  };
-
   // scripts/script.ts
+  var uiElements = [
+    {
+      selector: ".auth-popup-button",
+      handler: loginSigupModalHandler
+    },
+    {
+      selector: ".login",
+      handler: loginSignupHandler,
+      action: "submit"
+    },
+    {
+      selector: ".logout-button",
+      handler: logoutHandler
+    },
+    {
+      selector: ".close-modal",
+      handler: closeModalHandler
+    },
+    {
+      selector: ".debug",
+      handler: debugHandler
+    },
+    {
+      selector: ".new-colors",
+      handler: shuffleHandler
+    },
+    {
+      selector: ".clear-data",
+      handler: resetHandler
+    },
+    {
+      selector: "#color1",
+      handler: selectColor1Handler
+    },
+    {
+      selector: "#color2",
+      handler: selectColor2Handler
+    }
+  ];
   var app = new App();
-  var ui = new Ui();
-  ui.add(".login", "loginSignupForm", "submit", loginSignupHandler);
-  ui.add("#logout-btn", "logoutButton", "click", logoutHandler);
-  ui.add(".debug", "debugButon", "click", debugHandler);
-  ui.add(".new-colors", "shuffleColorsButton", "click", shuffleHandler);
-  ui.add(".clear-data", "resetGameButton", "click", resetHandler);
-  ui.add("#color1", "color1", "click", selectColor1Handler);
-  ui.add("#color2", "color2", "click", selectColor2Handler);
   async function main() {
+    for (let elem of uiElements) {
+      document.querySelector(elem.selector)?.addEventListener(elem.action ?? "click", elem.handler);
+    }
+    Ui.showLoadingMessage();
     await app.init();
+    Ui.hideLoadingMessage();
     Ui.updateAll(app);
   }
   main();
+  function closeModalHandler(e) {
+    const modal = document.querySelector(
+      ".auth-form-container"
+    );
+    logoutHandler(e);
+    modal.close();
+  }
+  function loginSigupModalHandler() {
+    const modal = document.querySelector(
+      ".auth-form-container"
+    );
+    modal.showModal();
+  }
   async function loginSignupHandler(e) {
-    if (!(e instanceof SubmitEvent)) {
+    const form = e.target;
+    if (!(e instanceof SubmitEvent) || !(form instanceof HTMLFormElement)) {
       return;
     }
-    await app.trySignupOrLogin(e);
-    await app.loadGame();
-    Ui.updateAll(app);
+    const action = e.submitter?.dataset.action;
+    try {
+      if (action === "login") {
+        await app.login(form);
+      } else if (action === "signup") {
+        await app.signup(form);
+      }
+      ;
+      document.querySelector(".auth-form-container").close();
+      form.reset();
+      Ui.updateAuth(app.user);
+      await app.loadGame();
+      Ui.updateGame(app.game);
+    } catch (error) {
+      const message = error.name === "DbError" ? error.message : "Something went wrong - please refresh the page and try again.";
+      notify("error" /* error */, message);
+    }
   }
   async function logoutHandler(e) {
     app.logoutUser(e);

@@ -12,12 +12,13 @@ export interface User {
     verified: string
 }
 
-export function getUser(obj: {}): User {
+export function userFrom(obj: {}): User {
     return obj as User
 }
 
 export function guestUser(): User {
-    return getUser({
+    return userFrom({
         id: 'guest',
+        email: 'guest',
     })
 }

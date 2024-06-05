@@ -1,55 +1,19 @@
-import { Ui } from './ui/ui'
+import { Ui } from './ui'
 import { Game } from './game'
-import { Auth, tryLocalLogin } from './auth'
+import { Auth } from './auth'
 import { User, guestUser } from './user'
 import { Db } from './db'
-import { NotifyType, notify } from './notification'
-
-function assertType<T>(
-    elem: any,
-    cls: new (...a: any) => T
-): asserts elem is T {
-    if (!(elem instanceof cls)) {
-        notify(
-            NotifyType.error,
-            'Something went wrong - please refresh the page and try again.'
-        )
-        throw new TypeError('Element is not an instance of ' + cls)
-    }
-}
-
-function getAndAssertType<T>(selector: string, cls: new (...a: any) => T): T {
-    const elem = document.querySelector(selector)
-    assertType(elem, cls)
-    return elem
-}
-
-function getButton(selector: string): HTMLButtonElement {
-    return getAndAssertType(selector, HTMLButtonElement)
-}
+import { FormConverter } from './formConverter'
 
 export class App {
     private _user: User
     private _game: Game
-    private db: Db
+    private _db: Db
 
     constructor() {
         this._user = guestUser()
         this._game = new Game()
-        this.db = new Db('http', '34.42.14.226', '8090')
-    }
-
-    async init() {
-        const user = await tryLocalLogin()
-
-        if (user instanceof Error || !user) {
-            Ui.updateGame(this.game)
-            return
-        }
-
-        this._user = user
-
-        await this.loadGame()
+        this._db = new Db('http', '34.42.14.226', '8090')
     }
 
     get user(): User {
@@ -60,33 +24,69 @@ export class App {
         return this._game
     }
 
-    set game(game: Game) {
-        this._game = game
+    async init(): Promise<void> {
+        await this._init()
     }
 
-    async loadGame(): Promise<boolean> {
-        if (!this.isLoggedIn()) {
-            return false
-        }
-
-        const game = await this.db.load(this._user.id)
-
-        if (game instanceof Error) {
-            notify(NotifyType.error, game.message)
-            return false
-        }
-
-        this._game = game
-        return true
+    private async _init(): Promise<void> {
+        try {
+            await this.tryLocalLogin()
+            await this.loadGame()
+        } catch (err) {}
     }
 
-    async saveGame(): Promise<boolean> {
-        if (!this.isLoggedIn()) {
-            return false
+    private async tryLocalLogin(): Promise<void> {
+        if (!localStorage.getItem('hasUserSaved')) {
+            return
         }
 
-        await this.db.save(this._game, this._user.id)
-        return true
+        Ui.updateAuth(localStorage.getItem('email') as string)
+
+        const id = localStorage.getItem('id') as string
+
+        this._user = await this._db.getUser(id)
+    }
+
+    async loadGame(): Promise<void> {
+        await this._loadGame()
+    }
+
+    async _loadGame(): Promise<void> {
+        if (!this.isLoggedIn) {
+            return
+        }
+
+        try {
+            this._game = await this._db.load(this._user.id)
+        } catch (error) {}
+    }
+
+    private async saveGame(): Promise<void> {
+        await this._saveGame()
+    }
+
+    private async _saveGame(): Promise<void> {
+        if (!this.isLoggedIn) {
+            return
+        }
+
+        try {
+            await this._db.save(this._game, this._user.id)
+        } catch (err) {}
+    }
+
+    private async deleteGame() {
+        this._deleteGame()
+    }
+
+    private async _deleteGame(): Promise<void> {
+        if (!this.isLoggedIn) {
+            return
+        }
+
+        try {
+            await this._db.delete(this._user.id)
+        } catch (err) {}
     }
 
     logoutUser(e: Event) {
@@ -98,37 +98,26 @@ export class App {
         Auth.clearLocal()
     }
 
-    private set user(user: User) {
-        this._user = user
-    }
-
-    private isLoggedIn() {
+    get isLoggedIn(): boolean {
         return this._user.id !== 'guest'
     }
 
-    async trySignupOrLogin(e: SubmitEvent) {
-        const form = e.target
-        assertType(form, HTMLFormElement)
+    async login(form: HTMLFormElement): Promise<void> {
+        this._user = await this._db.login(FormConverter.login(form))
+        this.maybeSaveAuthLocally(form)
+    }
 
-        console.log(this)
+    async signup(form: HTMLFormElement): Promise<void> {
+        this._user = await this._db.signup(FormConverter.signup(form))
+        this.maybeSaveAuthLocally(form)
+    }
 
-        const user = await this.db.try(e.submitter?.dataset.action!, form)
-
-        if (user instanceof Error) {
-            notify(NotifyType.error, user.message)
-            return
-        }
-
-        this._user = user
-
+    private maybeSaveAuthLocally(form: HTMLFormElement): void {
         if (Auth.shouldSaveLocal(form)) {
-            Auth.saveLocal(user)
+            Auth.saveLocal(this._user)
         } else {
             Auth.clearLocal()
         }
-
-        form.reset()
-        return user
     }
 
     debug() {
@@ -157,7 +146,8 @@ export class App {
                 break
             case 'reset':
                 this.game.reset()
-                break
+                await this.deleteGame()
+                return
             case 'selectColor':
                 if (num) {
                     this._game.selectColor(num)
@@ -166,6 +156,6 @@ export class App {
             default:
                 break
         }
-        this.db.save(this._game, this._user.id)
+        await this.saveGame()
     }
 }

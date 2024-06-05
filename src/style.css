@@ -7,9 +7,8 @@ body {
 }
 
 header {
-    padding-left: 20px;
     display: grid;
-    grid-auto-flow: column;
+    grid-auto-flow: row;
     align-items: center;
     justify-items: center;
 }
@@ -58,6 +57,12 @@ input {
     height: 100%;
 }
 
+.auth-buttons-container {
+    position: absolute;
+    top: 30px;
+    right: 30px;
+}
+
 .auth-form-container,
 .stats-container {
     border: 1px solid black;
@@ -73,11 +78,29 @@ input {
     width: 400px;
 }
 
+.auth-form-container::backdrop {
+    background-color: rgba(0,0,0,0.5);
+}
+
 .form-field {
     height: 35px;
     display: grid;
     grid-auto-flow: column;
     justify-items: stretch;
+}
+
+.close-modal {
+    font-weight: bold;
+    font-size: 28px;
+    align-self: start;
+    justify-self: end;
+    height: 20px;
+    position: relative;
+    top: -10px;
+}
+
+.close-modal:hover {
+    cursor: pointer;
 }
 
 .auth-buttons {
@@ -101,10 +124,8 @@ input {
 }
 
 .welcome-container {
-    display: grid;
-    gap: 5px;
-    margin: 10px;
-    grid-template-rows: repeat(2, 35px);
+    min-height: 20px;
+    font-style: italic;
 }
 
 .stats-container {
@@ -120,7 +141,6 @@ input {
 .color-container {
     margin: auto;
     margin-top: 50px;
-    margin-bottom: 50px;
     display: grid;
     justify-content: center;
     grid-auto-flow: column;
@@ -187,11 +207,20 @@ input {
 
     h1 {
         text-align: center;
+        margin-bottom: 0;
+    }
+
+    .auth-buttons-container {
+        position: initial;
+        display: grid;
+        justify-items: center;
     }
 
     .auth-form-container {
-        position: unset;
+        position: initial;
         margin: auto;
+        top: 0;
+        left: 0;
     }
 
     .stats-container,
@@ -201,11 +230,17 @@ input {
 
     .color-container {
         grid-auto-flow: row;
+        margin-top: 20px;
     }
 
     .color {
-        height: 200px;
-        width: 200px;
+        height: 22vh;
+        width: 22vh;
+    }
+
+    .notification-container {
+        left: 5vw;
+        width: 90vw;
     }
 }
 

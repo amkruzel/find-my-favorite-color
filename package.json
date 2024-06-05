@@ -14,7 +14,11 @@
     "author": "",
     "license": "ISC",
     "devDependencies": {
+        "@babel/core": "^7.24.6",
+        "@babel/preset-env": "^7.24.6",
+        "@babel/preset-typescript": "^7.24.6",
         "@types/node": "^20.12.2",
+        "babel-jest": "^29.7.0",
         "esbuild": "0.20.2",
         "typescript": "^5.3.3"
     }

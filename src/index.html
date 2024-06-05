@@ -13,25 +13,26 @@
     <body>
         <header>
             <h1>Find my favorite color</h1>
+            <div class="welcome-container">
+                <div class="welcome-user"></div>
+            </div>
         </header>
-        <div class="auth-form-container">
+        <div class="auth-buttons-container">
+            <button class="auth-popup-button">Sign up or login</button>
+            <button class="logout-button hidden">Logout</button>
+            <button id="logout-btn" class="hidden">Logout</button>
+        </div>
+        <dialog class="auth-form-container">
             <form enctype="multipart/form-data" action="http://34.42.14.226:8090/api/collections/users/records" method="post" class="login" onsubmit="event.preventDefault()">
+                <div class="form-field close-modal">
+                    &times;
+                </div>
                 <div class="form-field">
-                    <!--
-                    <div>
-                        <label for="email">Email: </label>
-                    </div>
-                    -->
                     <div>
                         <input type="email" name="identity" id="email" placeholder="Email" />
                     </div>
                 </div>
                 <div class="form-field">
-                    <!--
-                    <div>
-                        <label for="password">Password: </label>
-                    </div>
-                    -->
                     <div>
                         <input 
                             type="password" 
@@ -56,11 +57,7 @@
                     <!--<input type="submit" id="change-pw-btn" value="Change password">-->
                 </div>
             </form>
-            <div class="welcome-container">
-                <div class="welcome-user"></div>
-                <input type="button" id="logout-btn" class="hidden" value="Logout">
-            </div>
-        </div>
+        </dialog>
         <div class="notification-container">
 
         </div>
@@ -78,6 +75,7 @@
             <button class="clear-data">Clear Data</button>
             <button class="debug">Debug</button>
         </h2>
+        <div class="game-loading-message" style="text-align: center;"></div>
         <div class="color-container">
             <div class="color" id="color1"></div>
             <div class="color" id="color2"></div>

@@ -29,13 +29,15 @@
     get(val) {
       const num = this.ary[val];
       if (num === void 0) {
-        throw new Error("Value is undefined but should not be");
+        throw new Error(
+          `Value is undefined but should not be - val: '${val}'`
+        );
       }
       return num;
     }
     init(vals) {
       if (vals) {
-        this.ary = new Uint32Array(vals);
+        this.ary = new Uint32Array(vals, 0, 524288);
       } else {
         this.ary = new Uint32Array(524288);
       }
@@ -186,6 +188,7 @@
     init(data) {
       this.ary = ColorsAry.new();
       this.selectedColors = Array();
+      this.favoriteColorFound = false;
       if (data) {
         this.ary = ColorsAry.from(data.next1000);
       } else {
@@ -234,7 +237,7 @@
       return c;
     }
     get next1000Colors() {
-      return new Uint32Array(this.ary.slice(0, 1001));
+      return Uint32Array.from(this.ary.slice(-1e3, this.ary.length));
     }
     shuffle() {
       const c1 = this.ary.shift();
@@ -252,6 +255,9 @@
     select(num) {
       const selectedColor = num === 1 ? this.color1 : this.color2;
       const rejectedColor = num === 1 ? this.color2 : this.color1;
+      if (this.favoriteColorFound) {
+        return [selectedColor, rejectedColor];
+      }
       this.selectedColors.push(selectedColor);
       const moreThan2ColorsRemaining = this.ary.length > 2;
       if (moreThan2ColorsRemaining) {
@@ -266,8 +272,8 @@
     }
     resetAry() {
       this.validateAry();
-      const favoriteColorFound = this.selectedColors.length === 1;
-      if (favoriteColorFound) {
+      this.favoriteColorFound = this.selectedColors.length === 1;
+      if (this.favoriteColorFound) {
         this.selectedColors.push(this.selectedColors[0]);
       }
       this.reset();

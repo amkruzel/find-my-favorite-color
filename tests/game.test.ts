@@ -1,35 +1,33 @@
-import { Game } from 'scripts/game'
+import { Game, GameLoadArys, GameProps } from 'scripts/game'
 
 //import * as fs from 'fs'
 import * as fsPromises from 'fs/promises'
 import { TestColors } from './colors.test'
 import { TestCondensedColors } from './condensedColors.test'
-import { color } from 'scripts/colors'
+import { ColorsLoadData, color } from 'scripts/colors'
+import { describe, it } from 'node:test'
+import assert from 'assert'
 
 export class TestGame extends Game {
     _colors: TestColors
     selectedColors: TestCondensedColors
     eliminatedColors: TestCondensedColors
 
-    constructor() {
-        super()
+    constructor(arys?: any, props?: any) {
+        super(arys, props)
     }
 
     get testingProps(): [color[], color[]] {
         return [this._colors.raw, this._colors.nextIter]
     }
 
-    protected _buildColors() {
-        this._colors = new TestColors()
-        this.selectedColors = new TestCondensedColors()
-        this.eliminatedColors = new TestCondensedColors()
+    protected _buildColors(data: ColorsLoadData) {
+        this._colors = new TestColors(data)
     }
 }
 
 function assertTrue(val: any): asserts val is true {
-    if (!val) {
-        throw new Error('val is not true')
-    }
+    assert.equal(true, val)
 }
 
 function loop(g: Game, numLoops: number) {
@@ -38,143 +36,139 @@ function loop(g: Game, numLoops: number) {
     }
 }
 
-function _split(color: color) {
-    const [index, bit] = [color >> 5, 2 ** (color & 31)]
-    return [index, bit]
+async function gameToLoadData(
+    game: TestGame
+): Promise<[GameLoadArys, GameProps]> {
+    return [await getAryBuffers(game), game.properties]
 }
 
-function testSelectColor() {
-    const g = new TestGame()
-    let selected: color = g.color1
-    let eliminated: color = g.color2
-    g.selectColor(1)
+async function getAryBuffers(game: TestGame): Promise<GameLoadArys> {
+    const colors = await new Blob([game.next1000Colors]).arrayBuffer()
+    const eliminated = await game.eliminatedColors.blob.arrayBuffer()
+    const selected = await game.selectedColors.blob.arrayBuffer()
 
-    assertTrue(g.isEliminated(eliminated))
-    assertTrue(g.isSelected(selected))
-
-    // now do it a bunch more times
-    for (let i = 0; i < 0xffff; i++) {
-        selected = g.color1
-        eliminated = g.color2
-        g.selectColor(1)
-        //console.log(i)
-        assertTrue(g.isEliminated(eliminated))
-        assertTrue(g.isSelected(selected))
-    }
-
-    console.log('testSelectColor PASS')
+    return {
+        colors,
+        eliminated,
+        selected,
+    } as const
 }
 
-function testUintArray() {
-    const ary = new Uint32Array(0x80000)
+export const gameTests = () => {
+    describe('Game', () => {
+        const g1 = new TestGame()
 
-    for (let i = 0; i < Game.MAX_COLORS; i++) {
-        const [index, bit] = _split(i as color)
+        it('selects colors correctly', () => {
+            let selected: color = g1.color1
+            let eliminated: color = g1.color2
+            g1.selectColor(1)
 
-        const num = ary[index!]
+            assertTrue(g1.isEliminated(eliminated))
+            assertTrue(g1.isSelected(selected))
 
-        if (num === undefined) {
-            console.log('num is not truthy: ', num)
-            continue
-        }
+            // now do it a bunch more times
+            for (let i = 0; i < 0xffff; i++) {
+                selected = g1.color1
+                eliminated = g1.color2
+                g1.selectColor(1)
+                //console.log(i)
+                assertTrue(g1.isEliminated(eliminated))
+                assertTrue(g1.isSelected(selected))
+            }
+        })
 
-        assertTrue(!(num & bit!))
-        ary[index!] |= bit!
-    }
-    console.log('testUintArray PASS')
-}
+        it('should always have unique colors', async () => {
+            async function _assertTrue(val: any) {
+                if (!val) {
+                    const elimFh = await fsPromises.open('elim.txt', 'w')
+                    const seleFh = await fsPromises.open('sele.txt', 'w')
+                    const coloFh = await fsPromises.open('colo.txt', 'w')
 
-async function testColorUniqueness() {
-    async function _assertTrue(val: any) {
-        if (!val) {
-            const elimFh = await fsPromises.open('elim.txt', 'w')
-            const seleFh = await fsPromises.open('sele.txt', 'w')
-            const coloFh = await fsPromises.open('colo.txt', 'w')
+                    for (let num of g.eliminatedColors.raw) {
+                        await elimFh.write(num.toString() + '\n')
+                    }
 
-            for (let num of g.eliminatedColors.raw) {
-                await elimFh.write(num.toString() + '\n')
+                    for (let num of g.selectedColors.raw) {
+                        await seleFh.write(num.toString() + '\n')
+                    }
+
+                    for (let num of colors) {
+                        await coloFh.write(num.toString() + '\n')
+                    }
+
+                    await elimFh.close()
+                    await seleFh.close()
+                    await coloFh.close()
+
+                    throw new Error('val is not true')
+                }
             }
 
-            for (let num of g.selectedColors.raw) {
-                await seleFh.write(num.toString() + '\n')
+            const g = new TestGame()
+            const colors = new Set<color>()
+
+            for (let i = 0; i < Game.MAX_COLORS / 2; i++) {
+                await _assertTrue(!colors.has(g.color1))
+                await _assertTrue(!colors.has(g.color2))
+
+                colors.add(g.color1)
+                colors.add(g.color2)
+
+                g.selectColor(1)
+            }
+        })
+
+        it('should correctly change iterations', () => {
+            const g = new TestGame()
+            let curColors: number = g.colorsRemainingCurrentIteration
+            let curIter: number = g.currentIteration
+
+            function _assertTrue(val: any) {
+                if (!val) {
+                    console.log(g)
+                    console.log('curIter: ', curIter)
+                    console.log('curColors: ', curColors)
+
+                    assertTrue(val)
+                }
             }
 
-            for (let num of colors) {
-                await coloFh.write(num.toString() + '\n')
+            function assertVals() {
+                _assertTrue(g.currentIteration === curIter)
+                _assertTrue(g.colorsRemainingCurrentIteration === curColors)
             }
 
-            await elimFh.close()
-            await seleFh.close()
-            await coloFh.close()
+            function incrementVals() {
+                curColors = Game.MAX_COLORS / 2 ** curIter
+                curIter++
+            }
 
-            throw new Error('val is not true')
-        }
-    }
+            while (curColors !== 2) {
+                loop(g, Game.MAX_COLORS / 2 ** curIter - 1)
+                _assertTrue(g.currentIteration === curIter)
+                g.selectColor(1)
+                incrementVals()
+                assertVals()
+            }
 
-    const g = new TestGame()
-    const colors = new Set<color>()
+            _assertTrue(!g.favoriteColor)
 
-    for (let i = 0; i < Game.MAX_COLORS / 2; i++) {
-        await _assertTrue(!colors.has(g.color1))
-        await _assertTrue(!colors.has(g.color2))
+            const c1 = g.color1
+            const c2 = g.color2
+            console.log(c1, c2)
 
-        colors.add(g.color1)
-        colors.add(g.color2)
+            g.selectColor(2)
+            _assertTrue(g.favoriteColor || g.favoriteColor === 0)
+            _assertTrue(g.favoriteColor === c2)
+        })
 
-        g.selectColor(1)
-    }
+        it('should correctly load a game', async () => {
+            const [arys, props] = await gameToLoadData(g1)
 
-    console.log('testColorUniqueness PASS')
-}
+            const newG = new TestGame(arys, props)
 
-function testCheckForNewIteration() {
-    const g = new TestGame()
-    let curColors: number = g.colorsRemainingCurrentIteration
-    let curIter: number = g.currentIteration
-
-    function _assertTrue(val: any) {
-        if (!val) {
-            console.log(g)
-            console.log('curIter: ', curIter)
-            console.log('curColors: ', curColors)
-
-            assertTrue(val)
-        }
-    }
-
-    function assertVals() {
-        _assertTrue(g.currentIteration === curIter)
-        _assertTrue(g.colorsRemainingCurrentIteration === curColors)
-    }
-
-    function incrementVals() {
-        curColors = Game.MAX_COLORS / 2 ** curIter
-        curIter++
-    }
-
-    while (curColors !== 2) {
-        loop(g, Game.MAX_COLORS / 2 ** curIter - 1)
-        _assertTrue(g.currentIteration === curIter)
-        g.selectColor(1)
-        incrementVals()
-        assertVals()
-    }
-
-    _assertTrue(!g.favoriteColor)
-
-    const c1 = g.color1
-    const c2 = g.color2
-    console.log(c1, c2)
-
-    g.selectColor(2)
-    _assertTrue(g.favoriteColor || g.favoriteColor === 0)
-    _assertTrue(g.favoriteColor === c2)
-    console.log('testCheckForNewIteration PASS')
-}
-
-export async function gameTests() {
-    testSelectColor()
-    testUintArray()
-    await testColorUniqueness()
-    testCheckForNewIteration()
+            assert.equal(newG.color1, g1.color1)
+            assert.equal(newG.color2, g1.color2)
+        })
+    })
 }

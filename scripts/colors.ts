@@ -25,6 +25,7 @@ class ColorsAry {
 export class Colors {
     protected selectedColors: color[]
     protected ary: colorsAry
+    protected favoriteColorFound: boolean
     private static bgKey: number
 
     constructor(data?: ColorsLoadData) {
@@ -34,6 +35,7 @@ export class Colors {
     private init(data?: ColorsLoadData) {
         this.ary = ColorsAry.new()
         this.selectedColors = Array()
+        this.favoriteColorFound = false
 
         if (data) {
             this.ary = ColorsAry.from(data.next1000)
@@ -81,7 +83,7 @@ export class Colors {
         }
     }
 
-    private isInvalid(key: any) {
+    protected isInvalid(key: any) {
         return typeof key !== 'number' || key !== Colors.bgKey
     }
 
@@ -100,7 +102,7 @@ export class Colors {
     }
 
     get next1000Colors(): Uint32Array {
-        return new Uint32Array(this.ary.slice(0, 1001))
+        return Uint32Array.from(this.ary.slice(-1000, this.ary.length))
     }
 
     shuffle() {
@@ -123,6 +125,10 @@ export class Colors {
         const selectedColor = num === 1 ? this.color1 : this.color2
         const rejectedColor = num === 1 ? this.color2 : this.color1
 
+        if (this.favoriteColorFound) {
+            return [selectedColor, rejectedColor]
+        }
+
         this.selectedColors.push(selectedColor)
 
         const moreThan2ColorsRemaining = this.ary.length > 2
@@ -140,12 +146,12 @@ export class Colors {
         this.ary.splice(this.ary.length - 2, 2)
     }
 
-    private resetAry() {
+    protected resetAry() {
         this.validateAry()
 
-        const favoriteColorFound = this.selectedColors.length === 1
+        this.favoriteColorFound = this.selectedColors.length === 1
 
-        if (favoriteColorFound) {
+        if (this.favoriteColorFound) {
             this.selectedColors.push(this.selectedColors[0]!) // must be defined because we just pushed a value
         }
 
@@ -169,7 +175,7 @@ export class Colors {
         this.selectedColors = []
     }
 
-    private get reloadBgKey(): number {
+    protected get reloadBgKey(): number {
         Colors.bgKey = Date.now()
         return Colors.bgKey
     }

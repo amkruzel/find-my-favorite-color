@@ -1,33 +1,118 @@
 import { App } from './app'
-import { Ui } from './ui/ui'
+import { NotifyType, notify } from './notification'
+import { Ui } from './ui'
+
+/**
+ * Event handlers
+ */
+const uiElements = [
+    {
+        selector: '.auth-popup-button',
+        handler: loginSigupModalHandler,
+    },
+    {
+        selector: '.login',
+        handler: loginSignupHandler,
+        action: 'submit',
+    },
+    {
+        selector: '.logout-button',
+        handler: logoutHandler,
+    },
+    {
+        selector: '.close-modal',
+        handler: closeModalHandler,
+    },
+    {
+        selector: '.debug',
+        handler: debugHandler,
+    },
+    {
+        selector: '.new-colors',
+        handler: shuffleHandler,
+    },
+    {
+        selector: '.clear-data',
+        handler: resetHandler,
+    },
+    {
+        selector: '#color1',
+        handler: selectColor1Handler,
+    },
+    {
+        selector: '#color2',
+        handler: selectColor2Handler,
+    },
+]
 
 const app = new App()
-const ui = new Ui()
-
-ui.add('.login', 'loginSignupForm', 'submit', loginSignupHandler)
-ui.add('#logout-btn', 'logoutButton', 'click', logoutHandler)
-ui.add('.debug', 'debugButon', 'click', debugHandler)
-ui.add('.new-colors', 'shuffleColorsButton', 'click', shuffleHandler)
-ui.add('.clear-data', 'resetGameButton', 'click', resetHandler)
-ui.add('#color1', 'color1', 'click', selectColor1Handler)
-ui.add('#color2', 'color2', 'click', selectColor2Handler)
 
 async function main() {
+    for (let elem of uiElements) {
+        document
+            .querySelector(elem.selector)
+            ?.addEventListener(elem.action ?? 'click', elem.handler)
+    }
+
+    Ui.showLoadingMessage()
+
     await app.init()
+
+    Ui.hideLoadingMessage()
     Ui.updateAll(app)
 }
 
 main()
 
+function closeModalHandler(e: Event) {
+    const modal = document.querySelector(
+        '.auth-form-container'
+    ) as HTMLDialogElement
+    logoutHandler(e)
+    modal.close()
+}
+
+function loginSigupModalHandler() {
+    const modal = document.querySelector(
+        '.auth-form-container'
+    ) as HTMLDialogElement
+    modal.showModal()
+}
+
 async function loginSignupHandler(e: Event) {
-    if (!(e instanceof SubmitEvent)) {
+    const form = e.target
+
+    if (!(e instanceof SubmitEvent) || !(form instanceof HTMLFormElement)) {
         return
     }
 
-    await app.trySignupOrLogin(e)
-    await app.loadGame()
+    const action = e.submitter?.dataset.action
 
-    Ui.updateAll(app)
+    try {
+        if (action === 'login') {
+            await app.login(form)
+        } else if (action === 'signup') {
+            await app.signup(form)
+        }
+
+        ;(
+            document.querySelector('.auth-form-container') as HTMLDialogElement
+        ).close()
+
+        form.reset()
+
+        Ui.updateAuth(app.user)
+
+        await app.loadGame()
+        Ui.updateGame(app.game)
+    } catch (error) {
+        const message =
+            error.name === 'DbError'
+                ? error.message
+                : 'Something went wrong - please refresh the page and try again.'
+
+        notify(NotifyType.error, message)
+    }
 }
 
 async function logoutHandler(e: Event) {

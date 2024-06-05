@@ -7,7 +7,7 @@ export interface GameProps {
     colorsRemainingCurrentIteration: number
 }
 
-interface GameLoadArys {
+export interface GameLoadArys {
     eliminated: ArrayBuffer
     selected: ArrayBuffer
     colors: ArrayBuffer
@@ -22,6 +22,8 @@ export class Game {
     private _currentIteration: number
     private _colorsRemainingCurrentIteration: number
     _colors: Colors
+
+    id?: string
 
     constructor(arys?: GameLoadArys, props?: GameProps) {
         if (!arys || !props) {

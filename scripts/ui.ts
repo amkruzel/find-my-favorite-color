@@ -1,92 +1,52 @@
 import { Game } from 'scripts/game'
-import { UiElement } from './uielement'
 import { User } from 'scripts/user'
 import { App } from 'scripts/app'
 
 export class Ui {
-    private elements: Map<string, UiElement>
-
-    constructor(elems?: string[], names?: string[]) {
-        this.elements = new Map()
-
-        if (!elems) {
-            return
-        }
-
-        if (!names) {
-            names = elems
-        }
-
-        for (let i = 0; i < elems.length; i++) {
-            const selector = elems[i]
-            const name = names[i]
-
-            if (!selector || !name) {
-                return
-            }
-
-            if (!this.add(selector, name)) {
-                return
-            }
-        }
-    }
-
-    /**
-     * Attempts to add an element to the Ui. If there is already a value with
-     * the given name, it is not overwritten (the new element is not added).
-     * @param elem
-     * @returns true if the element is added
-     */
-    add(
-        descriptor: string,
-        name: string = descriptor,
-        event?: string,
-        handler?: EventListenerOrEventListenerObject
-    ): boolean {
-        if (this.elements.has(name)) {
-            return false
-        }
-
-        this.elements.set(name, new UiElement(descriptor))
-
-        if (event && handler) {
-            this.get(name)?.addEventListener(event, handler)
-        }
-
-        return true
-    }
-
-    get(name: string) {
-        return this.elements.get(name)
-    }
-
     static updateAll(app: App) {
         Ui.updateAuth(app.user)
         Ui.updateGame(app.game)
     }
 
+    static showLoadingMessage() {
+        Ui.appLoadingMessage('Loading...')
+    }
+
+    static hideLoadingMessage() {
+        Ui.appLoadingMessage()
+    }
+
+    private static appLoadingMessage(text?: string) {
+        const message = document.querySelector('.game-loading-message')
+
+        if (message instanceof HTMLDivElement) {
+            message.textContent = text ?? ''
+        }
+    }
+
     static updateAuth(user: User | string) {
-        const name = typeof user === 'string' ? user : user.email
+        const name = typeof user === 'object' ? user.email : user
+        const isLoggedIn = name !== 'guest'
 
         const loginClasses = document.querySelector('.login')!.classList
-        const logoutClasses = document.querySelector('#logout-btn')!.classList
-        const welcomeContainerClasses =
-            document.querySelector('.welcome-container')!.classList
+        const logoutClasses =
+            document.querySelector('.logout-button')!.classList
         const welcomeMessage = document.querySelector('.welcome-user')!
 
-        if (!name) {
+        const signupLoginPopupButtonClasses =
+            document.querySelector('.auth-popup-button')!.classList
+
+        if (isLoggedIn) {
+            loginClasses.add('hidden')
+            signupLoginPopupButtonClasses.add('hidden')
+            logoutClasses.remove('hidden')
+            welcomeMessage.textContent = `Welcome, ${name}`
+        } else {
             loginClasses.remove('hidden')
+            signupLoginPopupButtonClasses.remove('hidden')
             logoutClasses.add('hidden')
-            welcomeContainerClasses.add('hidden')
             welcomeMessage.textContent = ''
-
-            return
         }
-
-        loginClasses.add('hidden')
-        logoutClasses.remove('hidden')
-        welcomeContainerClasses.remove('hidden')
-        welcomeMessage.textContent = `Welcome, ${name}`
     }
 
     static updateGame(game: Game) {
