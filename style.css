@@ -229,13 +229,12 @@ input {
     }
 
     .color-container {
-        grid-auto-flow: row;
         margin-top: 20px;
     }
 
     .color {
-        height: 22vh;
-        width: 22vh;
+        height: 45vw;
+        width: 45vw;
     }
 
     .notification-container {
