@@ -27,8 +27,8 @@ export class Db {
     private _path: string
     private _pendingSave: boolean
 
-    constructor(protocol: string, ip: string, port: string) {
-        this._path = `${protocol}://${ip}:${port}`
+    constructor(path: string) {
+        this._path = path
         this._pendingSave = false
     }
 

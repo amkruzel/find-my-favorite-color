@@ -473,8 +473,8 @@
     }
   };
   var Db = class {
-    constructor(protocol, ip, port) {
-      this._path = `${protocol}://${ip}:${port}`;
+    constructor(path) {
+      this._path = path;
       this._pendingSave = false;
     }
     /**
@@ -665,7 +665,7 @@
     constructor() {
       this._user = guestUser();
       this._game = new Game();
-      this._db = new Db("http", "34.42.14.226", "8090");
+      this._db = new Db("https://fmfc.alexkruzel.com");
     }
     get user() {
       return this._user;

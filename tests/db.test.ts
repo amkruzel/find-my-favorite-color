@@ -25,7 +25,7 @@ class TestDb extends Db {
     }
 }
 
-const db = new TestDb('http', '34.42.14.226', '8090')
+const db = new TestDb('https://fmfc.alexkruzel.com:')
 
 export const dbTests = () => {
     describe('Db', () => {
