@@ -52,12 +52,14 @@ export class App {
     }
 
     async _loadGame(): Promise<void> {
-        if (!this.isLoggedIn) {
-            return
-        }
-
         try {
-            this._game = await this._db.load(this._user.id)
+            const game = await this._db.load(this._user.id)
+
+            if (!this.isLoggedIn) {
+                return
+            }
+
+            this._game = game
         } catch (error) {}
     }
 

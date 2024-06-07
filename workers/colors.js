@@ -66,6 +66,9 @@
         this._load(arys, props);
       }
     }
+    get isNewGame() {
+      return this._isNewGame;
+    }
     get color1() {
       return this._colors.color1;
     }
@@ -110,6 +113,7 @@
       return this.selectedColors.has(color3);
     }
     _init() {
+      this._isNewGame = true;
       this.eliminatedColors = new CondensedColors();
       this.selectedColors = new CondensedColors();
       this._currentIteration = 1;
@@ -118,6 +122,7 @@
       this._buildColors();
     }
     _load(arys, props) {
+      this._isNewGame = false;
       this.eliminatedColors = new CondensedColors(arys.eliminated);
       this.selectedColors = new CondensedColors(arys.selected);
       this._currentIteration = props.currentIteration;
@@ -139,6 +144,7 @@
       this._colors = new Colors(data);
     }
     _select(num) {
+      this._isNewGame = false;
       const [selected, rejected] = this._colors.select(num);
       this.selectedColors.add(selected);
       this.eliminatedColors.add(rejected);

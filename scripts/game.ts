@@ -21,6 +21,7 @@ export class Game {
     private _favoriteColorFound: boolean
     private _currentIteration: number
     private _colorsRemainingCurrentIteration: number
+    private _isNewGame: boolean
     _colors: Colors
 
     id?: string
@@ -31,6 +32,10 @@ export class Game {
         } else {
             this._load(arys, props)
         }
+    }
+
+    get isNewGame() {
+        return this._isNewGame
     }
 
     get color1() {
@@ -90,6 +95,7 @@ export class Game {
     }
 
     protected _init() {
+        this._isNewGame = true
         this.eliminatedColors = new CondensedColors()
         this.selectedColors = new CondensedColors()
         this._currentIteration = 1
@@ -100,6 +106,7 @@ export class Game {
     }
 
     private _load(arys: GameLoadArys, props: GameProps) {
+        this._isNewGame = false
         this.eliminatedColors = new CondensedColors(arys.eliminated)
         this.selectedColors = new CondensedColors(arys.selected)
         this._currentIteration = props.currentIteration
@@ -126,6 +133,7 @@ export class Game {
     }
 
     private _select(num: 1 | 2): void {
+        this._isNewGame = false
         const [selected, rejected] = this._colors.select(num)
         this.selectedColors.add(selected)
         this.eliminatedColors.add(rejected)
