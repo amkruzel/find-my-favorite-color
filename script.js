@@ -8,6 +8,13 @@
     }
     static showLoadingMessage() {
       _Ui.appLoadingMessage("Loading...");
+      const game = {
+        currentIteration: "...",
+        colorsRemainingCurrentIteration: "...",
+        color1: 4095,
+        color2: 4095
+      };
+      _Ui.updateGame(game);
     }
     static hideLoadingMessage() {
       _Ui.appLoadingMessage();
@@ -701,6 +708,9 @@
       await this._loadGame();
     }
     async _loadGame() {
+      if (!this.isLoggedIn) {
+        return;
+      }
       try {
         const game = await this._db.load(this._user.id);
         if (!this.isLoggedIn) {

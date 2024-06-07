@@ -10,6 +10,15 @@ export class Ui {
 
     static showLoadingMessage() {
         Ui.appLoadingMessage('Loading...')
+
+        const game = {
+            currentIteration: '...',
+            colorsRemainingCurrentIteration: '...',
+            color1: 4095,
+            color2: 4095,
+        } as unknown as Game
+
+        Ui.updateGame(game)
     }
 
     static hideLoadingMessage() {
