@@ -101,9 +101,11 @@ async function loginSignupHandler(e: Event) {
 
         form.reset()
 
+        Ui.showLoadingMessage()
         Ui.updateAuth(app.user)
 
         await app.loadGame()
+        Ui.hideLoadingMessage()
         Ui.updateGame(app.game)
     } catch (error) {
         const message =

@@ -889,8 +889,10 @@
       ;
       document.querySelector(".auth-form-container").close();
       form.reset();
+      Ui.showLoadingMessage();
       Ui.updateAuth(app.user);
       await app.loadGame();
+      Ui.hideLoadingMessage();
       Ui.updateGame(app.game);
     } catch (error) {
       const message = error.name === "DbError" ? error.message : "Something went wrong - please refresh the page and try again.";
