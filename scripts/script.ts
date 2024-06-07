@@ -119,6 +119,7 @@ async function loginSignupHandler(e: Event) {
 
 async function logoutHandler(e: Event) {
     app.logoutUser(e)
+    Ui.hideLoadingMessage()
     app.resetGame()
     Ui.updateAll(app)
 }

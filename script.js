@@ -908,6 +908,7 @@
   }
   async function logoutHandler(e) {
     app.logoutUser(e);
+    Ui.hideLoadingMessage();
     app.resetGame();
     Ui.updateAll(app);
   }
