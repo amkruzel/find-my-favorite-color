@@ -14,15 +14,18 @@ export class Ui {
         const game = {
             currentIteration: '...',
             colorsRemainingCurrentIteration: '...',
-            color1: 4095,
-            color2: 4095,
+            color1: 16777215,
+            color2: 16777215,
         } as unknown as Game
+
+        document.querySelector('.color-container')?.classList.add('hidden')
 
         Ui.updateGame(game)
     }
 
     static hideLoadingMessage() {
         Ui.appLoadingMessage()
+        document.querySelector('.color-container')?.classList.remove('hidden')
     }
 
     private static appLoadingMessage(text?: string) {
@@ -62,6 +65,7 @@ export class Ui {
         Ui.tryUpdateCurIter(game)
         Ui.tryUpdateColorsRemaining(game)
         Ui.tryUpdateColors(game)
+        Ui.tryUpdateFavoriteColorFound(game)
     }
 
     private static tryUpdateCurIter(game: Game) {
@@ -103,6 +107,22 @@ export class Ui {
 
         color1.style.backgroundColor = `#${bgColor1}`
         color2.style.backgroundColor = `#${bgColor2}`
+    }
+
+    private static tryUpdateFavoriteColorFound(game: Game) {
+        const faveColorFoundClassList = document.querySelector(
+            '.favorite-color-found'
+        )?.classList
+        const faveColorHex = document.querySelector('.favorite-color-hex')!
+        if (!game.favoriteColor) {
+            faveColorFoundClassList?.add('hidden')
+            faveColorHex.textContent = ''
+
+            return
+        }
+
+        faveColorFoundClassList?.remove('hidden')
+        faveColorHex.textContent = Ui.intToHex(game.favoriteColor)
     }
 
     private static intToHex(num: number) {

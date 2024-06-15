@@ -72,6 +72,10 @@ export class Game {
     }
 
     selectColor(num: 1 | 2) {
+        if (this._favoriteColorFound) {
+            return
+        }
+
         this._select(num)
         this._colorsRemainingCurrentIteration -= 2
         this._checkForNewIteration()

@@ -95,6 +95,9 @@
       return this._colors.next1000Colors;
     }
     selectColor(num) {
+      if (this._favoriteColorFound) {
+        return;
+      }
       this._select(num);
       this._colorsRemainingCurrentIteration -= 2;
       this._checkForNewIteration();

@@ -36,6 +36,16 @@ function loop(g: Game, numLoops: number) {
     }
 }
 
+export function createCompletedGame(): TestGame {
+    const g = new TestGame()
+
+    while (!g.favoriteColor) {
+        g.selectColor(1)
+    }
+
+    return g
+}
+
 async function gameToLoadData(
     game: TestGame
 ): Promise<[GameLoadArys, GameProps]> {

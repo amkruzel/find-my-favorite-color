@@ -2,7 +2,7 @@ import { Db } from 'scripts/db'
 import { describe, it } from 'node:test'
 import { FormConverter } from 'scripts/formConverter'
 import assert from 'assert'
-import { TestGame } from './game.test'
+import { TestGame, createCompletedGame } from './game.test'
 
 class TestDb extends Db {
     override async load(userId: string): Promise<TestGame> {
@@ -25,7 +25,14 @@ class TestDb extends Db {
     }
 }
 
-const db = new TestDb('https://fmfc.alexkruzel.com:')
+const db = new TestDb('https://fmfc.alexkruzel.com')
+
+export async function saveCompletedGame() {
+    const testUserId = 'nibf2tps5tidz5h'
+    const game = createCompletedGame()
+
+    await db.save(game, testUserId)
+}
 
 export const dbTests = () => {
     describe('Db', () => {

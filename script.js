@@ -11,13 +11,15 @@
       const game = {
         currentIteration: "...",
         colorsRemainingCurrentIteration: "...",
-        color1: 4095,
-        color2: 4095
+        color1: 16777215,
+        color2: 16777215
       };
+      document.querySelector(".color-container")?.classList.add("hidden");
       _Ui.updateGame(game);
     }
     static hideLoadingMessage() {
       _Ui.appLoadingMessage();
+      document.querySelector(".color-container")?.classList.remove("hidden");
     }
     static appLoadingMessage(text) {
       const message = document.querySelector(".game-loading-message");
@@ -48,6 +50,7 @@
       _Ui.tryUpdateCurIter(game);
       _Ui.tryUpdateColorsRemaining(game);
       _Ui.tryUpdateColors(game);
+      _Ui.tryUpdateFavoriteColorFound(game);
     }
     static tryUpdateCurIter(game) {
       const currenIter = document.querySelector(".current-iteration");
@@ -79,6 +82,19 @@
       }
       color1.style.backgroundColor = `#${bgColor1}`;
       color2.style.backgroundColor = `#${bgColor2}`;
+    }
+    static tryUpdateFavoriteColorFound(game) {
+      const faveColorFoundClassList = document.querySelector(
+        ".favorite-color-found"
+      )?.classList;
+      const faveColorHex = document.querySelector(".favorite-color-hex");
+      if (!game.favoriteColor) {
+        faveColorFoundClassList?.add("hidden");
+        faveColorHex.textContent = "";
+        return;
+      }
+      faveColorFoundClassList?.remove("hidden");
+      faveColorHex.textContent = _Ui.intToHex(game.favoriteColor);
     }
     static intToHex(num) {
       return num.toString(16).padStart(6, "0");
@@ -342,6 +358,9 @@
       return this._colors.next1000Colors;
     }
     selectColor(num) {
+      if (this._favoriteColorFound) {
+        return;
+      }
       this._select(num);
       this._colorsRemainingCurrentIteration -= 2;
       this._checkForNewIteration();
