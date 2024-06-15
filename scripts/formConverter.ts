@@ -4,6 +4,7 @@ export class FormConverter {
     static signup(fe: HTMLFormElement): FormData {
         const form = new FormData(fe)
 
+        FormConverter.tryAddProp(form, 'identity', 'email')
         FormConverter.tryAddProp(form, 'password', 'passwordConfirm')
 
         return form

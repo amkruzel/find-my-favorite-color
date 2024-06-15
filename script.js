@@ -461,6 +461,7 @@
   var FormConverter = class _FormConverter {
     static signup(fe) {
       const form = new FormData(fe);
+      _FormConverter.tryAddProp(form, "identity", "email");
       _FormConverter.tryAddProp(form, "password", "passwordConfirm");
       return form;
     }
